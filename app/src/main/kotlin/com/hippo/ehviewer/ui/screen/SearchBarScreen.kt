@@ -38,7 +38,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.SearchBarHorizontalPadding
 import androidx.compose.material3.SearchBarInputField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -100,9 +99,9 @@ fun SearchBarScreen(
     onApplySearch: (String) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
-    title: String? = null,
+    title: String?,
+    searchFieldHint: String,
     searchFieldState: TextFieldState = rememberTextFieldState(),
-    searchFieldHint: String? = null,
     suggestionProvider: SuggestionProvider? = null,
     tagNamespace: Boolean = false,
     searchBarOffsetY: () -> Int = { 0 },
@@ -190,7 +189,7 @@ fun SearchBarScreen(
 
     fun deleteKeyword(keyword: String) {
         scope.launch {
-            dialogState.awaitPermissionOrCancel(
+            dialogState.awaitConfirmationOrCancel(
                 confirmText = R.string.delete,
             ) {
                 Text(text = stringResource(id = R.string.delete_search_history, keyword))
@@ -226,13 +225,11 @@ fun SearchBarScreen(
                     expanded = expanded,
                     onExpandedChange = onExpandedChange,
                     modifier = Modifier.widthIn(max = maxWidth - SearchBarHorizontalPadding * 2),
-                    label = title.ifNotNullThen {
-                        Text(title!!, overflow = TextOverflow.Ellipsis)
-                    }.takeUnless {
+                    placeholder = {
                         val contentActive by activeState.state
-                        expanded || contentActive || searchFieldState.text.isNotEmpty()
+                        val text = title.takeUnless { expanded || contentActive } ?: searchFieldHint
+                        Text(text, overflow = TextOverflow.Ellipsis, maxLines = 1)
                     },
-                    placeholder = searchFieldHint.ifNotNullThen { Text(searchFieldHint!!) },
                     leadingIcon = {
                         if (expanded) {
                             IconButton(onClick = { hideSearchView() }) {
@@ -316,3 +313,4 @@ fun wrapTagKeyword(keyword: String, translate: Boolean = false): String = if (ke
 }
 
 private val WhitespaceRegex = Regex("\\s+")
+private val SearchBarHorizontalPadding = 16.dp

@@ -5,7 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
 import android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -35,26 +38,28 @@ import com.hippo.ehviewer.EhDB
 import com.hippo.ehviewer.R
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.asMutableState
-import com.hippo.ehviewer.client.CHROME_USER_AGENT
 import com.hippo.ehviewer.client.EhEngine
 import com.hippo.ehviewer.client.data.FavListUrlBuilder
 import com.hippo.ehviewer.collectAsState
-import com.hippo.ehviewer.ui.tools.LocalDialogState
 import com.hippo.ehviewer.ui.tools.observed
+import com.hippo.ehviewer.ui.tools.rememberedAccessor
 import com.hippo.ehviewer.util.AppConfig
 import com.hippo.ehviewer.util.Crash
 import com.hippo.ehviewer.util.ReadableTime
+import com.hippo.ehviewer.util.displayPath
 import com.hippo.ehviewer.util.getAppLanguage
 import com.hippo.ehviewer.util.getLanguages
 import com.hippo.ehviewer.util.isAtLeastO
-import com.hippo.ehviewer.util.isAtLeastV
+import com.hippo.ehviewer.util.sendTo
 import com.hippo.ehviewer.util.setAppLanguage
-import com.hippo.unifile.asUniFile
+import com.hippo.files.delete
+import com.hippo.files.toOkioPath
 import com.jamal.composeprefs3.ui.prefs.DropDownPref
 import com.jamal.composeprefs3.ui.prefs.SwitchPref
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
+import eu.kanade.tachiyomi.util.lang.withIOContext
 import eu.kanade.tachiyomi.util.system.logcat
 import java.io.File
 import java.util.zip.ZipEntry
@@ -63,6 +68,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.tarsin.coroutines.runSuspendCatching
+import okio.Path.Companion.toOkioPath
+import splitties.init.appCtx
 
 @Destination<RootGraph>
 @Composable
@@ -72,7 +79,6 @@ fun AdvancedScreen(navigator: DestinationsNavigator) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope { Dispatchers.IO }
     fun launchSnackBar(content: String) = coroutineScope.launch { snackbarHostState.showSnackbar(content) }
-    val dialogState = LocalDialogState.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,17 +94,31 @@ fun AdvancedScreen(navigator: DestinationsNavigator) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         Column(modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection).verticalScroll(rememberScrollState()).padding(paddingValues)) {
-            if (AppConfig.isSnapshot) {
-                SwitchPreference(
-                    title = "New Compose Reader [WIP!!!]",
-                    value = Settings::newReader,
-                )
-            }
             SwitchPreference(
                 title = stringResource(id = R.string.settings_advanced_save_parse_error_body),
                 summary = stringResource(id = R.string.settings_advanced_save_parse_error_body_summary),
                 value = Settings::saveParseErrorBody,
             )
+            val stripAds = Settings.stripExtraneousAds.asMutableState()
+            SwitchPreference(
+                title = stringResource(id = R.string.settings_strip_extraneous_ads),
+                value = stripAds.rememberedAccessor,
+            )
+            AnimatedVisibility(visible = stripAds.value) {
+                LauncherPreference(
+                    title = stringResource(id = R.string.settings_ads_placeholder),
+                    contract = ActivityResultContracts.PickVisualMedia(),
+                    key = PickVisualMediaRequest(mediaType = ImageOnly),
+                ) { uri ->
+                    withIOContext {
+                        if (uri != null) {
+                            uri.toOkioPath() sendTo AdsPlaceholderFile
+                        } else {
+                            AdsPlaceholderFile.delete()
+                        }
+                    }
+                }
+            }
             SwitchPreference(
                 title = stringResource(id = R.string.settings_advanced_save_crash_log),
                 summary = stringResource(id = R.string.settings_advanced_save_crash_log_summary),
@@ -130,7 +150,7 @@ fun AdvancedScreen(navigator: DestinationsNavigator) {
                                 Crash.collectInfo(zipOs.writer())
                                 Runtime.getRuntime().exec("logcat -d").inputStream.use { it.copyTo(zipOs) }
                             }
-                            launchSnackBar(getString(R.string.settings_advanced_dump_logcat_to, uri.toString()))
+                            launchSnackBar(getString(R.string.settings_advanced_dump_logcat_to, uri.displayPath))
                         }
                     }.onFailure {
                         launchSnackBar(dumpLogError)
@@ -176,32 +196,23 @@ fun AdvancedScreen(navigator: DestinationsNavigator) {
                 title = stringResource(id = R.string.animate_items),
                 summary = stringResource(id = R.string.animate_items_summary),
             )
-            var userAgent by Settings::userAgent.observed
-            val userAgentTitle = stringResource(id = R.string.user_agent)
-            Preference(
-                title = userAgentTitle,
-                summary = userAgent,
-            ) {
-                coroutineScope.launch {
-                    userAgent = dialogState.awaitInputText(
-                        initial = userAgent,
-                        title = userAgentTitle,
-                    ).trim().ifBlank { null } ?: CHROME_USER_AGENT
-                }
-            }
+            SwitchPreference(
+                title = stringResource(id = R.string.desktop_site),
+                summary = stringResource(id = R.string.desktop_site_summary),
+                value = Settings::desktopSite,
+            )
             val exportFailed = stringResource(id = R.string.settings_advanced_export_data_failed)
-            val now = ReadableTime.getFilenamableTime()
             LauncherPreference(
                 title = stringResource(id = R.string.settings_advanced_export_data),
                 summary = stringResource(id = R.string.settings_advanced_export_data_summary),
-                contract = ActivityResultContracts.CreateDocument("application/vnd.sqlite3"),
-                key = if (isAtLeastV) now else "$now.db",
+                contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
+                key = ReadableTime.getFilenamableTime() + ".db",
             ) { uri ->
                 uri?.let {
                     context.runCatching {
                         grantUriPermission(BuildConfig.APPLICATION_ID, uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                        EhDB.exportDB(context, uri.asUniFile())
-                        launchSnackBar(getString(R.string.settings_advanced_export_data_to, uri.toString()))
+                        EhDB.exportDB(context, uri.toOkioPath())
+                        launchSnackBar(getString(R.string.settings_advanced_export_data_to, uri.displayPath))
                     }.onFailure {
                         logcat(it)
                         launchSnackBar(exportFailed)
@@ -214,7 +225,7 @@ fun AdvancedScreen(navigator: DestinationsNavigator) {
                 title = stringResource(id = R.string.settings_advanced_import_data),
                 summary = stringResource(id = R.string.settings_advanced_import_data_summary),
                 contract = ActivityResultContracts.GetContent(),
-                key = if (isAtLeastV) "application/vnd.sqlite3" else "application/octet-stream",
+                key = "application/octet-stream",
             ) { uri ->
                 uri?.let {
                     context.runCatching {
@@ -289,3 +300,5 @@ fun AdvancedScreen(navigator: DestinationsNavigator) {
         }
     }
 }
+
+val AdsPlaceholderFile = appCtx.filesDir.toOkioPath() / "AdsPlaceholder"

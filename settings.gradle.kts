@@ -11,7 +11,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven("https://androidx.dev/snapshots/builds/11994105/artifacts/repository")
     }
 }
 
@@ -19,3 +18,4 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 enableFeaturePreview("STABLE_CONFIGURATION_CACHE")
 rootProject.name = "EhViewer"
 include(":app")
+include(":benchmark")

@@ -1,4 +1,5 @@
-use anyhow::{anyhow, Result};
+use crate::{parse_marshal_inplace, regex};
+use anyhow::{Context, Result};
 use jni::objects::{JByteBuffer, JClass};
 use jni::sys::jint;
 use jni::JNIEnv;
@@ -6,7 +7,6 @@ use jni_fn::jni_fn;
 use quick_xml::escape::unescape;
 use serde::Serialize;
 use tl::{Parser, VDom};
-use {parse_marshal_inplace, regex};
 
 #[derive(Serialize)]
 struct Torrent {
@@ -22,7 +22,7 @@ struct Torrent {
 }
 
 fn parse_torrent_list(dom: &VDom, parser: &Parser) -> Result<Vec<Torrent>> {
-    let list = dom.query_selector("table").ok_or(anyhow!("No Table"))?.filter_map(|e| {
+    let list = dom.query_selector("table").context("No Table")?.filter_map(|e| {
         let html = e.get(parser)?.inner_html(parser);
         if html.contains("Expunged") {
             None

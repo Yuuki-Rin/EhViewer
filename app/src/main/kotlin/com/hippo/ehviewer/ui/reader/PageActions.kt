@@ -16,31 +16,33 @@ import com.hippo.ehviewer.BuildConfig.APPLICATION_ID
 import com.hippo.ehviewer.R
 import com.hippo.ehviewer.client.EhUrl
 import com.hippo.ehviewer.client.data.GalleryInfo
+import com.hippo.ehviewer.gallery.Page
 import com.hippo.ehviewer.gallery.PageLoader2
 import com.hippo.ehviewer.util.AppConfig
 import com.hippo.ehviewer.util.FileUtils
 import com.hippo.ehviewer.util.awaitActivityResult
+import com.hippo.ehviewer.util.displayPath
 import com.hippo.ehviewer.util.isAtLeastQ
 import com.hippo.ehviewer.util.isAtLeastT
 import com.hippo.ehviewer.util.requestPermission
-import com.hippo.unifile.asUniFile
-import com.hippo.unifile.displayPath
-import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import com.hippo.files.toOkioPath
 import eu.kanade.tachiyomi.util.system.logcat
 import java.io.File
 import kotlinx.datetime.Clock
 import moe.tarsin.coroutines.runSuspendCatching
+import okio.Path.Companion.toOkioPath
 import splitties.systemservices.clipboardManager
 
 context(PageLoader2)
 private fun Context.provideImage(index: Int): Uri? {
     val dir = AppConfig.externalTempDir ?: return null
-    val name = saveToDir(index, dir.asUniFile())?.name ?: return null
-    return FileProvider.getUriForFile(this, "$APPLICATION_ID.fileprovider", File(dir, name))
+    val name = getImageFilename(index) ?: return null
+    val file = File(dir, name).takeIf { save(index, it.toOkioPath()) } ?: return null
+    return FileProvider.getUriForFile(this, "$APPLICATION_ID.fileprovider", file)
 }
 
 context(SnackbarHostState, Context, PageLoader2)
-suspend fun shareImage(page: ReaderPage, info: GalleryInfo? = null) {
+suspend fun shareImage(page: Page, info: GalleryInfo? = null) {
     val error = getString(R.string.error_cant_save_image)
     val share = getString(R.string.share_image)
     val noActivity = getString(R.string.error_cant_find_activity)
@@ -65,7 +67,7 @@ suspend fun shareImage(page: ReaderPage, info: GalleryInfo? = null) {
 }
 
 context(SnackbarHostState, Context, PageLoader2)
-suspend fun copy(page: ReaderPage) {
+suspend fun copy(page: Page) {
     val error = getString(R.string.error_cant_save_image)
     val copied = getString(R.string.copied_to_clipboard)
     val uri = provideImage(page.index)
@@ -81,7 +83,7 @@ suspend fun copy(page: ReaderPage) {
 }
 
 context(SnackbarHostState, Context, PageLoader2)
-suspend fun save(page: ReaderPage) {
+suspend fun save(page: Page) {
     val granted = isAtLeastQ || requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     val cannotSave = getString(R.string.error_cant_save_image)
     if (granted) {
@@ -95,7 +97,7 @@ suspend fun save(page: ReaderPage) {
         val values = ContentValues()
         val realPath: String
         values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-        values.put(MediaStore.Images.Media.DATE_ADDED, Clock.System.now().toEpochMilliseconds())
+        values.put(MediaStore.MediaColumns.DATE_ADDED, Clock.System.now().epochSeconds)
         values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
         if (isAtLeastQ) {
             realPath = Environment.DIRECTORY_PICTURES + File.separator + AppConfig.APP_DIRNAME
@@ -113,7 +115,7 @@ suspend fun save(page: ReaderPage) {
         }
         val imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
         if (imageUri != null) {
-            if (!save(page.index, imageUri.asUniFile())) {
+            if (!save(page.index, imageUri.toOkioPath())) {
                 try {
                     contentResolver.delete(imageUri, null, null)
                 } catch (e: Exception) {
@@ -135,7 +137,7 @@ suspend fun save(page: ReaderPage) {
 }
 
 context(SnackbarHostState, Context, PageLoader2)
-suspend fun saveTo(page: ReaderPage) {
+suspend fun saveTo(page: Page) {
     val filename = getImageFilename(page.index)
     if (filename == null) {
         showSnackbar(getString(R.string.error_cant_save_image))
@@ -146,7 +148,7 @@ suspend fun saveTo(page: ReaderPage) {
     page.runSuspendCatching {
         val uri = awaitActivityResult(ActivityResultContracts.CreateDocument(mimeType), filename)
         if (uri != null) {
-            save(index, uri.asUniFile())
+            save(index, uri.toOkioPath())
             showSnackbar(getString(R.string.image_saved, uri.displayPath))
         }
     }.onFailure {

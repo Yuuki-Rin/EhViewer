@@ -76,13 +76,11 @@ fun SearchBarInputField(
                 singleLine = true,
                 visualTransformation = VisualTransformation.None,
                 interactionSource = interactionSource,
-                label = label,
                 placeholder = placeholder,
                 leadingIcon = leadingIcon?.let { leading -> { Box(Modifier.offset(x = SearchBarIconOffsetX)) { leading() } } },
                 trailingIcon = trailingIcon?.let { trailing -> { Box(Modifier.offset(x = -SearchBarIconOffsetX)) { trailing() } } },
                 shape = SearchBarDefaults.inputFieldShape,
                 colors = colors,
-                contentPadding = TextFieldDefaults.contentPaddingWithoutLabel(),
                 container = {},
             )
         },
@@ -102,5 +100,4 @@ fun SearchBarInputField(
 val SearchBarIconOffsetX = 4.dp
 val SearchBarMinWidth = 360.dp
 val SearchBarMaxWidth = 720.dp
-val SearchBarHorizontalPadding = 16.dp
 const val AnimationDelayMillis = 100

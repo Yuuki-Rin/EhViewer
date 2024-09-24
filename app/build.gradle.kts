@@ -1,5 +1,6 @@
 import com.mikepenz.aboutlibraries.plugin.DuplicateMode.MERGE
 import com.mikepenz.aboutlibraries.plugin.DuplicateRule.GROUP
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
 
 val isRelease: Boolean
     get() = gradle.startParameter.taskNames.any { it.contains("Release") }
@@ -14,14 +15,33 @@ plugins {
     alias(libs.plugins.spotless)
     alias(libs.plugins.aboutlibrariesPlugin)
     alias(libs.plugins.composeCompilerReportGenerator)
+    alias(libs.plugins.baselineprofile)
 }
 
 val supportedAbis = arrayOf("arm64-v8a", "x86_64", "armeabi-v7a")
 
 android {
-    compileSdk = 34
-    ndkVersion = "27.0.11902837-rc1"
-    androidResources.generateLocaleConfig = true
+    compileSdk = 35
+    buildToolsVersion = "35.0.0"
+    ndkVersion = "27.1.12297006"
+
+    androidResources {
+        generateLocaleConfig = true
+        localeFilters += listOf(
+            "zh",
+            "zh-rCN",
+            "zh-rHK",
+            "zh-rTW",
+            "es",
+            "ja",
+            "ko",
+            "fr",
+            "de",
+            "th",
+            "tr",
+            "nb-rNO",
+        )
+    }
 
     splits {
         abi {
@@ -64,26 +84,10 @@ android {
     defaultConfig {
         applicationId = "moe.tarsin.ehviewer"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 180056
-        versionName = "1.12.0"
+        targetSdk = 35
+        versionCode = 180059
+        versionName = "1.13.0"
         versionNameSuffix = "-SNAPSHOT"
-        resourceConfigurations.addAll(
-            listOf(
-                "zh",
-                "zh-rCN",
-                "zh-rHK",
-                "zh-rTW",
-                "es",
-                "ja",
-                "ko",
-                "fr",
-                "de",
-                "th",
-                "tr",
-                "nb-rNO",
-            ),
-        )
         buildConfigField("String", "RAW_VERSION_NAME", "\"$versionName${versionNameSuffix.orEmpty()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"$commitSha\"")
         buildConfigField("long", "COMMIT_TIME", commitTime)
@@ -146,24 +150,26 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
-            lint {
-                abortOnError = false
-            }
+        }
+        create("benchmarkRelease") {
+            initWith(buildTypes.getByName("release"))
+            matchingFallbacks += listOf("release")
+            applicationIdSuffix = ".benchmark"
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
         }
     }
 
     buildFeatures {
         buildConfig = true
         compose = true
-        viewBinding = true
     }
 
     namespace = "com.hippo.ehviewer"
 }
 
 composeCompiler {
-    enableNonSkippingGroupOptimization = true
-    enableStrongSkippingMode = true
+    featureFlags = setOf(ComposeFeatureFlag.OptimizeNonSkippingGroups)
 }
 
 androidComponents {
@@ -175,6 +181,10 @@ androidComponents {
             "**.bin",
         )
     }
+}
+
+baselineProfile {
+    mergeIntoMain = true
 }
 
 dependencies {
@@ -205,15 +215,11 @@ dependencies {
     // https://developer.android.com/jetpack/androidx/releases/paging
     implementation(libs.androidx.paging.compose)
 
-    implementation(libs.androidx.recyclerview)
-    implementation(libs.androidx.viewpager2)
-
     // https://developer.android.com/jetpack/androidx/releases/room
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.paging)
 
     implementation(libs.androidx.work.runtime)
-    implementation(libs.photoview)
     implementation(libs.material.motion.core)
 
     implementation(libs.bundles.splitties)
@@ -228,9 +234,7 @@ dependencies {
     implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.accompanist.drawable.painter)
 
-    implementation(libs.insetter) // Dead Dependency
-
-    // implementation(libs.reorderable)
+    implementation(libs.reorderable)
 
     implementation(platform(libs.arrow.stack))
     implementation(libs.arrow.fx.coroutines)
@@ -254,6 +258,9 @@ dependencies {
 
     implementation(libs.cronet.embedded)
 
+    implementation(libs.androidx.profileinstaller)
+    "baselineProfile"(project(":benchmark"))
+
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)
 }
@@ -266,6 +273,8 @@ kotlin {
             "-progressive",
             "-Xjvm-default=all",
             "-Xcontext-receivers",
+            "-Xwhen-guards",
+            "-Xsuppress-warning=CONTEXT_RECEIVERS_DEPRECATED",
 
             "-opt-in=coil3.annotation.ExperimentalCoilApi",
             "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
@@ -274,6 +283,7 @@ kotlin {
             "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
             "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
+            "-opt-in=androidx.compose.animation.ExperimentalSharedTransitionApi",
             "-opt-in=androidx.paging.ExperimentalPagingApi",
             "-opt-in=kotlin.contracts.ExperimentalContracts",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",

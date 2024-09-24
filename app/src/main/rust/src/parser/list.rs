@@ -1,18 +1,18 @@
-use anyhow::{anyhow, bail, Result};
+use crate::parse_marshal_inplace;
+use crate::{get_element_by_id, get_vdom_first_element_by_class_name};
+use crate::{get_first_element_by_class_name, query_childs_first_match_attr};
+use crate::{get_node_attr, get_node_handle_attr, regex};
+use crate::{EHGT_PREFIX, EX_PREFIX};
+use anyhow::{bail, Context, Result};
 use jni::objects::{JByteBuffer, JClass};
 use jni::sys::jint;
 use jni::JNIEnv;
 use jni_fn::jni_fn;
-use parse_marshal_inplace;
 use quick_xml::escape::unescape;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::ops::Index;
 use tl::{Node, Parser, VDom};
-use {get_element_by_id, get_vdom_first_element_by_class_name};
-use {get_first_element_by_class_name, query_childs_first_match_attr};
-use {get_node_attr, get_node_handle_attr, regex};
-use {EHGT_PREFIX, EX_PREFIX};
 
 #[derive(Serialize)]
 #[allow(non_snake_case)]
@@ -201,7 +201,7 @@ pub fn parse_info_list(dom: &VDom, parser: &Parser, str: &str) -> Result<Gallery
     if str.contains("<p>You do not have any watched tags") {
         bail!("No watched tags!")
     }
-    if str.contains("No hits found</p>") || str.contains("No unfiltered results found") {
+    if str.contains("No hits found</p>") || str.contains("No unfiltered results") {
         bail!("No hits found!")
     }
     let f = || {
@@ -235,7 +235,7 @@ pub fn parse_info_list(dom: &VDom, parser: &Parser, str: &str) -> Result<Gallery
             galleryInfoList: info,
         })
     };
-    f().ok_or(anyhow!("No content"))
+    f().context("No content")
 }
 
 #[no_mangle]

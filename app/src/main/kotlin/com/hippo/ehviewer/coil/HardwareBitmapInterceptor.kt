@@ -3,9 +3,8 @@ package com.hippo.ehviewer.coil
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.annotation.RequiresApi
-import coil3.BitmapImage
 import coil3.Extras
-import coil3.asCoilImage
+import coil3.asImage
 import coil3.getExtra
 import coil3.intercept.Interceptor
 import coil3.intercept.Interceptor.Chain
@@ -29,19 +28,18 @@ object HardwareBitmapInterceptor : Interceptor {
         val result = chain.proceed()
         val request = result.request
         if (!request.allowHardware && result is SuccessResult) {
-            val image = when (val image = result.image) {
-                is BitmapImageWithRect -> image.image
-                is BitmapImage -> image
-                else -> return result
-            }
-            val bitmap = image.bitmap
-            // Large hardware bitmaps have rendering issues (e.g. crash, empty) on some devices.
-            // This is not ideal but I haven't figured out how to probe the threshold.
-            // All we know is that it's less than the maximum texture size.
-            if (maxOf(bitmap.width, bitmap.height) <= request.hardwareThreshold) {
-                bitmap.copy(Bitmap.Config.HARDWARE, false)?.let {
-                    bitmap.recycle()
-                    return result.copy(image = it.asCoilImage(), request = request, dataSource = result.dataSource)
+            val image = result.image
+            if (image is BitmapImageWithExtraInfo) {
+                val bitmap = image.image.bitmap
+                val isHardware = bitmap.config == Bitmap.Config.HARDWARE
+                // Large hardware bitmaps have rendering issues (e.g. crash, empty) on some devices.
+                // This is not ideal but I haven't figured out how to probe the threshold.
+                // All we know is that it's less than the maximum texture size.
+                if (!isHardware && maxOf(bitmap.width, bitmap.height) <= request.hardwareThreshold) {
+                    bitmap.copy(Bitmap.Config.HARDWARE, false)?.let { hwBitmap ->
+                        bitmap.recycle()
+                        return result.copy(image = image.copy(image = hwBitmap.asImage()))
+                    }
                 }
             }
         }

@@ -6,24 +6,38 @@
   "ignorePaths": [
     "app/build.gradle.kts"
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "(^|/)CMakeLists\\.txt$"
+      ],
+      "matchStrings": [
+        "(?<depName>\\S*)\\s*GIT_REPOSITORY https://(?<datasource>.*?)\\.com/(?<packageName>.*?)\\.git\\s*GIT_TAG (?<currentValue>\\S*)"
+      ],
+      "datasourceTemplate": "{{{datasource}}}-tags"
+    }
+  ],
   "packageRules": [
+    {
+      "description": "Disable updates for SNAPSHOTs",
+      "matchDatasources": [
+        "maven"
+      ],
+      "allowedVersions": "!/SNAPSHOT$/"
+    },
     {
       "groupName": "AGP",
       "matchDepNames": [
-        "com.android.application"
+        "com.android.application",
+        "com.android.test"
       ],
+      "allowedVersions": "/^.*-alpha\\d*$/",
       "ignoreUnstable": false
     },
     {
       "matchDepPrefixes": [
         "androidx."
-      ],
-      "ignoreUnstable": false
-    },
-    {
-      "groupName": "Compose BOM",
-      "matchDepNames": [
-        "dev.chrisbanes.compose:compose-bom"
       ],
       "ignoreUnstable": false
     },
@@ -36,11 +50,10 @@
       "recreateWhen": "never"
     },
     {
-      "description": "Disable updates for SNAPSHOTs",
-      "matchDatasources": [
-        "maven"
+      "matchDepNames": [
+        "nettle"
       ],
-      "allowedVersions": "!/SNAPSHOT$/"
+      "versioning": "regex:^nettle_(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?(?<prerelease>rc\\d+)?"
     }
   ],
   "lockFileMaintenance": {

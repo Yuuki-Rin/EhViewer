@@ -14,7 +14,7 @@ interface LocalFavoritesDao {
     @Query("SELECT COUNT(*) FROM LOCAL_FAVORITES")
     fun count(): Flow<Int>
 
-    @Query("SELECT * FROM LOCAL_FAVORITES ORDER BY TIME")
+    @Query("SELECT LOCAL_FAVORITES.* FROM LOCAL_FAVORITES JOIN GALLERIES USING(GID) ORDER BY TIME")
     suspend fun list(): List<LocalFavoriteInfo>
 
     @Query("SELECT GALLERIES.* FROM LOCAL_FAVORITES JOIN GALLERIES USING(GID) ORDER BY TIME DESC")
@@ -27,7 +27,7 @@ interface LocalFavoritesDao {
     fun joinListLazy(title: String): PagingSource<Int, BaseGalleryInfo>
 
     @Query("SELECT GALLERIES.* FROM LOCAL_FAVORITES JOIN GALLERIES USING(GID) ORDER BY RANDOM() LIMIT 1")
-    suspend fun random(): BaseGalleryInfo
+    suspend fun random(): BaseGalleryInfo?
 
     @Query("SELECT EXISTS(SELECT * FROM LOCAL_FAVORITES WHERE GID = :gid)")
     suspend fun contains(gid: Long): Boolean

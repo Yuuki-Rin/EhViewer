@@ -16,7 +16,7 @@
 package com.hippo.ehviewer.util
 
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.jvm.nio.copyTo
+import io.ktor.utils.io.copyTo
 import java.io.File
 import java.io.RandomAccessFile
 import java.util.Locale
@@ -118,10 +118,10 @@ object FileUtils {
                 }
             }
             if (sizeInBytes > MAX_FILENAME_BYTES) {
-                do {
+                while (sizeInBytes > MAX_FILENAME_BYTES - 3) {
                     deleteCharAt(length / 2)
-                } while (sizeInBytes >= MAX_FILENAME_BYTES)
-                insert(length / 2, '…')
+                }
+                insert(length / 2, "...")
             }
         }
     }

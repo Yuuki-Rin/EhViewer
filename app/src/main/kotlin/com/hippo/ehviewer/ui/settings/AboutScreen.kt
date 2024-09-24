@@ -139,7 +139,7 @@ fun AboutScreen(navigator: DestinationsNavigator) {
 }
 
 suspend fun DialogState.showNewVersion(context: Context, release: Release) {
-    awaitPermissionOrCancel(
+    awaitConfirmationOrCancel(
         confirmText = R.string.download,
         title = R.string.new_version_available,
     ) {
@@ -154,9 +154,7 @@ suspend fun DialogState.showNewVersion(context: Context, release: Release) {
     }
     if (Settings.backupBeforeUpdate) {
         val time = ReadableTime.getFilenamableTime()
-        downloadLocation.createFile("$time.db")?.let {
-            EhDB.exportDB(context, it)
-        }
+        EhDB.exportDB(context, (downloadLocation / "$time.db"))
     }
     // TODO: Download in the background and show progress in notification
     val file = File(AppConfig.tempDir, "update.apk").apply { delete() }

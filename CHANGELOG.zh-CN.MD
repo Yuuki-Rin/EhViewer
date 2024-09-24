@@ -1,5 +1,66 @@
 # 变更日志
 
+## [1.12.0] - 2024-08-19
+
+### 重大变更
+
+* Compose 阅读器已稳定，移除了旧阅读器实现 [#847](https://github.com/FooIbar/EhViewer/issues/847)
+* 由于 E 站缩略图服务器变更，移除了强制使用 e-hentai 缩略图服务器的选项
+
+### 改进
+
+* 更新高级搜索选项中页数过滤器的范围限制以遵循 E 站变更
+
+### Bug 修复
+
+* 评论页面刷新指示器边距不正确 [#1428](https://github.com/FooIbar/EhViewer/issues/1428)
+* 关闭打开失败的压缩包时崩溃
+* 无法打开带密码的压缩包 [#1454](https://github.com/FooIbar/EhViewer/issues/1454)
+* 使用音量键翻页时无法关闭过渡动画 [#1467](https://github.com/FooIbar/EhViewer/issues/1467)
+* 带有图片的评论显示错位 [#1468](https://github.com/FooIbar/EhViewer/issues/1468)
+* 在包含相同项目的页面间切换时崩溃 [#1490](https://github.com/FooIbar/EhViewer/issues/1490)
+* 无法检查更新 [#1512](https://github.com/FooIbar/EhViewer/issues/1512)
+* 画廊详情未加载完成时退出阅读器导致崩溃 [#1507](https://github.com/FooIbar/EhViewer/issues/1507)
+* 无法为带有临时标签的画廊生成 ComicInfo.xml [#1509](https://github.com/FooIbar/EhViewer/issues/1509)
+* 已下载的画廊翻页时出现加载动画 [#1510](https://github.com/FooIbar/EhViewer/issues/1510)
+* 画廊详情页面的缩略图无法加载 [#1529](https://github.com/FooIbar/EhViewer/issues/1529)
+* 图片未加载完成时无法通过点击翻页
+* 搜索结果为空时解析失败 [#1418](https://github.com/FooIbar/EhViewer/issues/1418)
+* 缩略图分辨率设置不起作用
+
+
+## [1.11.7] - 2024-07-10
+
+### Bug 修复
+
+* 无法下载标题包含 # 或 % 的画廊
+* 下载页数较多的画廊时应用无响应
+* 退出搜索栏时文本闪烁
+
+
+## [1.11.6] - 2024-07-09 [YANKED]
+
+### 改进
+
+* 某些设备上无法加载长图时可尝试减小 设置-高级 中的硬件位图阈值 [#1321](https://github.com/FooIbar/EhViewer/issues/1321)
+* 清理下载冗余时显示确认对话框 [#1369](https://github.com/FooIbar/EhViewer/issues/1369)
+* 修改收藏时显示收藏备注 [#1392](https://github.com/FooIbar/EhViewer/issues/1392)
+
+### Bug 修复
+
+* 图片完整性校验误报 [#1286](https://github.com/FooIbar/EhViewer/issues/1286)
+* 某些情况下应用崩溃 [#1290](https://github.com/FooIbar/EhViewer/issues/1290) [#1302](https://github.com/FooIbar/EhViewer/issues/1302)
+* 某些情况下渲染问题 [#1284](https://github.com/FooIbar/EhViewer/issues/1284)
+* 无法下载标题过长的画廊 [#1340](https://github.com/FooIbar/EhViewer/issues/1340)
+* 某些界面拖动滚动条时黑屏 [#1329](https://github.com/FooIbar/EhViewer/issues/1329)
+* 搜索栏多行文本遮挡其他内容 [#1365](https://github.com/FooIbar/EhViewer/issues/1365)
+* CIFS Documents Provider 兼容问题 [#1356](https://github.com/FooIbar/EhViewer/issues/1356)
+* 清理下载冗余未按预期运行 [#1369](https://github.com/FooIbar/EhViewer/issues/1369)
+* 读取压缩包失败时崩溃
+* 某些设备上崩溃 [#1276](https://github.com/FooIbar/EhViewer/issues/1276)
+* 检查更新失效
+
+
 ## [1.11.6-RC2] - 2024-06-06
 
 ### 改进

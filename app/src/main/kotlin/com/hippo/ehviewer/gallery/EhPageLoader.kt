@@ -22,7 +22,7 @@ import com.hippo.ehviewer.spider.SpiderQueen
 import com.hippo.ehviewer.spider.SpiderQueen.Companion.obtainSpiderQueen
 import com.hippo.ehviewer.spider.SpiderQueen.Companion.releaseSpiderQueen
 import com.hippo.ehviewer.spider.SpiderQueen.OnSpiderListener
-import com.hippo.unifile.UniFile
+import okio.Path
 
 class EhPageLoader(private val mGalleryInfo: GalleryInfo, startPage: Int) :
     PageLoader2(mGalleryInfo.gid, startPage),
@@ -48,7 +48,7 @@ class EhPageLoader(private val mGalleryInfo: GalleryInfo, startPage: Int) :
 
     override fun getImageExtension(index: Int): String? = mSpiderQueen.getExtension(index)
 
-    override fun save(index: Int, file: UniFile): Boolean = mSpiderQueen.save(index, file)
+    override fun save(index: Int, file: Path): Boolean = mSpiderQueen.save(index, file)
 
     override val size: Int
         get() = mSpiderQueen.size
@@ -65,10 +65,6 @@ class EhPageLoader(private val mGalleryInfo: GalleryInfo, startPage: Int) :
 
     override val isReady: Boolean
         get() = ::mSpiderQueen.isInitialized && mSpiderQueen.isReady
-
-    override fun onCancelRequest(index: Int) {
-        mSpiderQueen.cancelRequest(index)
-    }
 
     override fun onGetPages(pages: Int) {}
 
@@ -105,7 +101,7 @@ class EhPageLoader(private val mGalleryInfo: GalleryInfo, startPage: Int) :
         notifyPageFailed(index, error)
     }
 
-    override fun preloadPages(pages: List<Int>, pair: Pair<Int, Int>) {
-        mSpiderQueen.preloadPages(pages, pair)
+    override fun prefetchPages(pages: List<Int>, bounds: Pair<Int, Int>) {
+        mSpiderQueen.preloadPages(pages, bounds)
     }
 }

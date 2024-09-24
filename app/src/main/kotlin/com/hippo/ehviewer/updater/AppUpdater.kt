@@ -6,23 +6,21 @@ import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.client.executeAndParseAs
 import com.hippo.ehviewer.client.executeSafely
 import com.hippo.ehviewer.util.copyTo
+import com.hippo.ehviewer.util.ensureSuccess
 import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
-import io.ktor.client.statement.bodyAsText
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import java.io.File
 import java.util.zip.ZipInputStream
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Duration.Companion.days
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import moe.tarsin.coroutines.runSuspendCatching
-import org.json.JSONObject
 import tachiyomi.data.release.GithubArtifacts
 import tachiyomi.data.release.GithubCommitComparison
 import tachiyomi.data.release.GithubRelease
+import tachiyomi.data.release.GithubRepo
 import tachiyomi.data.release.GithubWorkflowRuns
 
 private const val API_URL = "https://api.github.com/repos/${BuildConfig.REPO_NAME}"
@@ -37,7 +35,7 @@ object AppUpdater {
             Settings.lastUpdateTime = now.epochSeconds
             if (Settings.useCIUpdateChannel) {
                 val curSha = BuildConfig.COMMIT_SHA
-                val branch = ghStatement(API_URL).executeSafely { JSONObject(it.bodyAsText()).getString("default_branch") }
+                val branch = ghStatement(API_URL).executeAndParseAs<GithubRepo>().defaultBranch
                 val workflowRunsUrl = "$API_URL/actions/workflows/ci.yml/runs?branch=$branch&event=push&status=success&per_page=1"
                 val workflowRun = ghStatement(workflowRunsUrl).executeAndParseAs<GithubWorkflowRuns>().workflowRuns[0]
                 val shortSha = workflowRun.headSha.take(7)
@@ -70,6 +68,7 @@ object AppUpdater {
 
     suspend fun downloadUpdate(url: String, file: File) =
         ghStatement(url).executeSafely { response ->
+            response.status.ensureSuccess()
             if (url.endsWith("zip")) {
                 response.bodyAsChannel().toInputStream().use { stream ->
                     ZipInputStream(stream).use { zip ->
@@ -85,13 +84,16 @@ object AppUpdater {
         }
 }
 
-@OptIn(ExperimentalEncodingApi::class)
 private suspend inline fun ghStatement(url: String) = ktorClient.prepareGet(url) {
-    val token = "github_" + "pat_11AXZS" + "T4A0k3TArCGakP3t_7DzUE5S" + "mr1zw8rmmzVtCeRq62" + "A4qkuDMw6YQm5ZUtHSLZ2MLI3J4VSifLXZ"
-    val user = "nullArrayList"
-    val base64 = Base64.encode("$user:$token".toByteArray())
-    header("Authorization", "Basic $base64")
+    header("Authorization", GithubTokenParts.joinToString("_", prefix = "Bearer "))
 }
+
+private val GithubTokenParts = arrayOf(
+    "github",
+    "pat",
+    "11A4H2ACI0XXTRsYkt1Mps",
+    "uJ5n8UbLv20j6Ue4k1x25Z7u63EaCdDNYooxSeI4GJaQYKXWDZEtTmDVwnh",
+)
 
 data class Release(
     val version: String,
