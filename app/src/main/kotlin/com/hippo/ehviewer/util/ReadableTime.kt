@@ -15,10 +15,14 @@
  */
 package com.hippo.ehviewer.util
 
-import com.hippo.ehviewer.R
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.util.toLocalDateTime
 import java.util.Locale
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -53,19 +57,19 @@ object ReadableTime {
     private val DATE_FORMAT_WITHOUT_YEAR = LocalDate.Format {
         monthName(MonthNames.ENGLISH_ABBREVIATED)
         char(' ')
-        dayOfMonth(Padding.NONE)
+        day(Padding.NONE)
     }
     private val DATE_FORMAT_WITH_YEAR = LocalDate.Format {
         monthName(MonthNames.ENGLISH_ABBREVIATED)
         char(' ')
-        dayOfMonth(Padding.NONE)
+        day(Padding.NONE)
         chars(", ")
         year()
     }
     private val DATE_FORMAT_WITHOUT_YEAR_ZH = LocalDate.Format {
         monthNumber(Padding.NONE)
         char('月')
-        dayOfMonth(Padding.NONE)
+        day(Padding.NONE)
         char('日')
     }
     private val DATE_FORMAT_WITH_YEAR_ZH = LocalDate.Format {
@@ -73,7 +77,7 @@ object ReadableTime {
         char('年')
         monthNumber(Padding.NONE)
         char('月')
-        dayOfMonth(Padding.NONE)
+        day(Padding.NONE)
         char('日')
     }
 
@@ -83,7 +87,7 @@ object ReadableTime {
         char('-')
         monthNumber()
         char('-')
-        dayOfMonth()
+        day()
         char('-')
         hour()
         char('-')
@@ -95,38 +99,28 @@ object ReadableTime {
     }
     private val resources = appCtx.resources
 
+    @Composable
     fun getTimeAgo(time: Long): String {
         val nowInstant = Clock.System.now()
         val now = nowInstant.toEpochMilliseconds()
         val diff = now - time
         return when {
-            (diff < 0 || time <= 0) -> {
-                resources.getString(R.string.from_the_future)
-            }
-            diff < MINUTE_MILLIS -> {
-                resources.getString(R.string.just_now)
-            }
-            diff < 2 * MINUTE_MILLIS -> {
-                resources.getQuantityString(R.plurals.some_minutes_ago, 1, 1)
-            }
+            (diff < 0 || time <= 0) -> stringResource(id = R.string.from_the_future)
+            diff < MINUTE_MILLIS -> stringResource(id = R.string.just_now)
+            diff < 2 * MINUTE_MILLIS -> pluralStringResource(R.plurals.some_minutes_ago, 1, 1)
             diff < 50 * MINUTE_MILLIS -> {
                 val minutes = (diff / MINUTE_MILLIS).toInt()
-                resources.getQuantityString(R.plurals.some_minutes_ago, minutes, minutes)
+                pluralStringResource(R.plurals.some_minutes_ago, minutes, minutes)
             }
-            diff < 90 * MINUTE_MILLIS -> {
-                resources.getQuantityString(R.plurals.some_hours_ago, 1, 1)
-            }
+            diff < 90 * MINUTE_MILLIS -> pluralStringResource(R.plurals.some_hours_ago, 1, 1)
             diff < 24 * HOUR_MILLIS -> {
                 val hours = (diff / HOUR_MILLIS).toInt()
-                resources.getQuantityString(R.plurals.some_hours_ago, hours, hours)
+                pluralStringResource(R.plurals.some_hours_ago, hours, hours)
             }
             diff < 48 * HOUR_MILLIS -> {
-                resources.getString(R.string.yesterday)
+                stringResource(id = R.string.yesterday)
             }
-            diff < WEEK_MILLIS -> {
-                val days = (diff / DAY_MILLIS).toInt()
-                resources.getString(R.string.some_days_ago, days)
-            }
+            diff < WEEK_MILLIS -> stringResource(R.string.some_days_ago, (diff / DAY_MILLIS).toInt())
             else -> {
                 val timeZone = TimeZone.currentSystemDefault()
                 val nowDate = nowInstant.toLocalDateTime(timeZone).date
@@ -156,6 +150,5 @@ object ReadableTime {
         }
     }
 
-    fun getFilenamableTime(time: Instant = Clock.System.now()): String =
-        FILENAMABLE_DATE_FORMAT.format(time.toLocalDateTime(TimeZone.currentSystemDefault()))
+    fun getFilenamableTime(time: Instant = Clock.System.now()): String = FILENAMABLE_DATE_FORMAT.format(time.toLocalDateTime(TimeZone.currentSystemDefault()))
 }

@@ -12,13 +12,10 @@ import coil3.asImage
 import coil3.intercept.Interceptor
 import coil3.request.ImageResult
 import coil3.request.SuccessResult
+import com.ehviewer.core.util.isAtLeastQ
+import com.ehviewer.core.util.logcat
 import com.hippo.ehviewer.image.copyBitmapToAHB
-import com.hippo.ehviewer.util.isAtLeastQ
-import eu.kanade.tachiyomi.util.system.logcat
 import moe.tarsin.coroutines.runSuspendCatching
-
-@RequiresApi(Build.VERSION_CODES.O)
-private const val FORMAT = HardwareBuffer.RGBA_8888
 
 @RequiresApi(Build.VERSION_CODES.O)
 private const val USAGE = HardwareBuffer.USAGE_CPU_WRITE_RARELY or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE
@@ -42,8 +39,14 @@ object CropBorderInterceptor : Interceptor {
                     val meetHardwareThreshold = maxOf(w, h) <= chain.request.hardwareThreshold
                     val bitmap = when {
                         isAtLeastQ && meetHardwareThreshold -> runSuspendCatching {
+                            val format = when (val config = src.config) {
+                                Bitmap.Config.ARGB_8888 -> HardwareBuffer.RGBA_8888
+                                Bitmap.Config.RGB_565 -> HardwareBuffer.RGB_565
+                                Bitmap.Config.RGBA_F16 -> HardwareBuffer.RGBA_FP16
+                                else -> error("Unsupported bitmap config: $config")
+                            }
                             resourceScope {
-                                val buffer = autoCloseable { HardwareBuffer.create(w, h, FORMAT, 1, USAGE) }
+                                val buffer = autoCloseable { HardwareBuffer.create(w, h, format, 1, USAGE) }
                                 copyBitmapToAHB(src, buffer, x, y)
                                 Bitmap.wrapHardwareBuffer(buffer, src.colorSpace)
                             }

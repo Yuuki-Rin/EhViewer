@@ -6,28 +6,40 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavBackStackEntry
+import com.ehviewer.core.ui.util.ProvideVectorPainterCache
 import com.hippo.ehviewer.ui.theme.EhTheme
 import com.hippo.ehviewer.ui.tools.DialogState
-import com.hippo.ehviewer.ui.tools.LocalDialogState
-import com.hippo.ehviewer.ui.tools.ProvideVectorPainterCache
+import com.hippo.ehviewer.ui.tools.LocalGlobalDialogState
 import com.ramcosta.composedestinations.animations.NavHostAnimatedDestinationStyle
+import me.zhanghai.compose.preference.ProvidePreferenceTheme
+import me.zhanghai.compose.preference.preferenceTheme
 import soup.compose.material.motion.animation.materialSharedAxisXIn
 import soup.compose.material.motion.animation.materialSharedAxisXOut
 import soup.compose.material.motion.animation.rememberSlideDistance
 
-inline fun ComponentActivity.setMD3Content(crossinline content: @Composable () -> Unit) = setContent {
+inline fun ComponentActivity.setMD3Content(crossinline content: @Composable DialogState.() -> Unit) = setContent {
     EhTheme(useDarkTheme = isSystemInDarkTheme()) {
-        ProvideVectorPainterCache {
-            val dialogState = remember { DialogState() }
-            dialogState.Intercept()
-            CompositionLocalProvider(
-                LocalDialogState provides dialogState,
-            ) {
-                content()
+        val theme = preferenceTheme(
+            iconColor = MaterialTheme.colorScheme.primary,
+            titleTextStyle = MaterialTheme.typography.titleMedium,
+        )
+        ProvidePreferenceTheme(theme) {
+            ProvideVectorPainterCache {
+                val dialogState = remember { DialogState() }
+                CompositionLocalProvider(LocalGlobalDialogState provides dialogState) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        content(dialogState)
+                        dialogState.Place()
+                    }
+                }
             }
         }
     }

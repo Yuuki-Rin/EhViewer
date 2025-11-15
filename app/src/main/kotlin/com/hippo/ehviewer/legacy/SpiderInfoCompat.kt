@@ -1,38 +1,36 @@
 package com.hippo.ehviewer.legacy
 
+import com.ehviewer.core.files.read
 import com.hippo.ehviewer.spider.SpiderInfo
-import java.io.InputStream
-import okio.buffer
-import okio.source
+import kotlinx.io.readLineStrict
+import okio.Path
 
-fun readLegacySpiderInfo(inputStream: InputStream): SpiderInfo {
-    val source = inputStream.source().buffer()
-    fun read(): String = source.readUtf8LineStrict()
+fun Path.readLegacySpiderInfo() = read {
+    fun read() = readLineStrict()
+    fun readInt() = read().toInt()
+    fun readLong() = read().toLong()
 
-    fun readInt(): Int = read().toInt()
-
-    fun readLong(): Long = read().toLong()
-    repeat(2) { read() } // We assert that only info v2
+    read() // Skip version, we assert it's v2
+    read() // Skip startPage
     val gid = readLong()
     val token = read()
-    read()
-    val previewPages = readInt()
+    read() // Skip mode
+    read() // Skip previewPages
     val previewPerPage = readInt()
-    val pages = read().toInt()
-    val pTokenMap = hashMapOf<Int, String>()
-    val info = SpiderInfo(gid, token, pages, pTokenMap, previewPages, previewPerPage)
-    runCatching {
-        while (true) {
-            val line = read()
-            val pos = line.indexOf(" ")
-            if (pos > 0) {
-                val index = line.substring(0, pos).toInt()
-                val pToken = line.substring(pos + 1)
-                if (pToken.isNotEmpty()) {
-                    pTokenMap[index] = pToken
+    val pages = readInt()
+    SpiderInfo(gid, token, pages, previewPerPage = previewPerPage).apply {
+        runCatching {
+            while (true) {
+                val line = read()
+                val pos = line.indexOf(" ")
+                if (pos > 0) {
+                    val index = line.substring(0, pos).toInt()
+                    val pToken = line.substring(pos + 1)
+                    if (pToken.isNotEmpty()) {
+                        pTokenMap[index] = pToken
+                    }
                 }
             }
         }
     }
-    return info
 }

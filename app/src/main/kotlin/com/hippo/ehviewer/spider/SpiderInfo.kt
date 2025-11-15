@@ -1,12 +1,13 @@
 package com.hippo.ehviewer.spider
 
+import com.ehviewer.core.files.read
+import com.ehviewer.core.files.write
+import com.ehviewer.core.util.logcat
 import com.hippo.ehviewer.coil.edit
 import com.hippo.ehviewer.coil.read
 import com.hippo.ehviewer.ktbuilder.diskCache
 import com.hippo.ehviewer.legacy.readLegacySpiderInfo
-import com.hippo.files.openInputStream
-import com.hippo.files.openOutputStream
-import eu.kanade.tachiyomi.util.system.logcat
+import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.decodeFromByteArray
@@ -26,8 +27,6 @@ class SpiderInfo(
 
     val pTokenMap: MutableMap<Int, String> = hashMapOf(),
 
-    var previewPages: Int = -1,
-
     var previewPerPage: Int = -1,
 )
 
@@ -35,16 +34,12 @@ private val cbor = Cbor {
     ignoreUnknownKeys = true
 }
 
-fun SpiderInfo.write(file: Path) {
-    file.openOutputStream().use {
-        it.write(cbor.encodeToByteArray(this))
-    }
-}
+fun SpiderInfo.write(file: Path) = file.write { write(cbor.encodeToByteArray(contextOf<SpiderInfo>())) }
 
 fun SpiderInfo.saveToCache() {
     runSuspendCatching {
         spiderInfoCache.edit(gid.toString()) {
-            data.toFile().writeBytes(cbor.encodeToByteArray(this@saveToCache))
+            write(data)
         }
     }.onFailure {
         logcat(it)
@@ -60,18 +55,14 @@ private val spiderInfoCache by lazy {
 
 fun readFromCache(gid: Long): SpiderInfo? = spiderInfoCache.read(gid.toString()) {
     runCatching {
-        cbor.decodeFromByteArray<SpiderInfo>(data.toFile().readBytes())
+        data.read { cbor.decodeFromByteArray<SpiderInfo>(readByteArray()) }
     }.onFailure {
         logcat(it)
     }.getOrNull()
 }
 
 fun readCompatFromPath(file: Path): SpiderInfo? = runCatching {
-    file.openInputStream().use {
-        cbor.decodeFromByteArray<SpiderInfo>(it.readBytes())
-    }
+    file.read { cbor.decodeFromByteArray<SpiderInfo>(readByteArray()) }
 }.getOrNull() ?: runCatching {
-    file.openInputStream().use { readLegacySpiderInfo(it) }
+    file.readLegacySpiderInfo()
 }.getOrNull()
-
-const val TOKEN_FAILED = "failed"

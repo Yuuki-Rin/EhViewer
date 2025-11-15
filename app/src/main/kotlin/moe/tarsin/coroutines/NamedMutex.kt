@@ -1,23 +1,21 @@
 package moe.tarsin.coroutines
 
-import arrow.core.memoize
-import kotlin.contracts.InvocationKind
-import kotlin.contracts.contract
+import io.ktor.utils.io.pool.DefaultPool
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
-class NamedMutex<T> {
-    val innerMutexGetter = { _: T -> Mutex() }.memoize()
+class MutexWithCounter() : Mutex by Mutex(), Counter by counter()
+
+object MutexPool : DefaultPool<MutexWithCounter>(capacity = 32) {
+    override fun produceInstance() = MutexWithCounter()
+    override fun validateInstance(instance: MutexWithCounter) {
+        check(!instance.isLocked)
+        check(instance.isFree)
+    }
 }
 
-suspend inline fun <T, K> NamedMutex<K>.withLock(key: K, owner: Any? = null, action: () -> T): T {
-    contract {
-        callsInPlace(action, InvocationKind.EXACTLY_ONCE)
-    }
-
-    val mutex = synchronized(innerMutexGetter) {
-        innerMutexGetter(key)
-    }
-
-    return mutex.withLock(owner, action)
+class NamedMutex<K>() : LockTracker<MutexWithCounter, K>() {
+    override suspend fun MutexWithCounter.lock() = lock()
+    override fun MutexWithCounter.unlock() = unlock()
+    override fun new() = MutexPool.borrow()
+    override fun free(e: MutexWithCounter) = MutexPool.recycle(e)
 }

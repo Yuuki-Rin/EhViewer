@@ -1,5 +1,200 @@
 # 变更日志
 
+## [1.14.5] - 2025-10-19
+
+### 改进
+
+* [阅读器] 显示画廊标题
+* [阅读器] 显示菜单时改变标题栏颜色
+
+### Bug 修复
+
+* 横屏模式下打开阅读器设置会闪退 [#2673](https://github.com/FooIbar/EhViewer/issues/2673)
+* 强制横屏时竖直拿取设备加载图片会横竖屏乱跳 [#2674](https://github.com/FooIbar/EhViewer/issues/2674)
+
+
+## [1.14.4] - 2025-10-12
+
+### 改进
+
+* [阅读器] 支持禁用使用音量键翻页 [#2593](https://github.com/FooIbar/EhViewer/issues/2593)
+* 视搜索警告为错误 [#2604](https://github.com/FooIbar/EhViewer/issues/2604)
+* 余额不足时停止下载并显示通知 [#2479](https://github.com/FooIbar/EhViewer/issues/2479)
+* [阅读器] 使用默认阅读模式时对带有 webtoon 标签的画廊自动使用条漫模式 [#2632](https://github.com/FooIbar/EhViewer/issues/2632)
+* 优化按页数排序下载项目的速度
+* 开启显示标签投票状态时为 power >= 100 的标签添加下划线
+* 杂项优化
+
+### Bug 修复
+
+* Android 16 QPR1 上画廊详情中的标签文本对比度不足
+* 初始化 DownloadManager 用时过长导致 ANR [#2588](https://github.com/FooIbar/EhViewer/issues/2588)
+* 某些设备上无法下载名称较长的画廊 [#2607](https://github.com/FooIbar/EhViewer/issues/2607)
+* 评论区链接实际可点击区域比画面显示上的略长 [#2615](https://github.com/FooIbar/EhViewer/issues/2615)
+* 主页快速搜索再次打开出现以前的画廊重复出现在最上层 [#2628](https://github.com/FooIbar/EhViewer/issues/2628)
+* 非条漫模式下原始大小较小的动图不播放 [#2652](https://github.com/FooIbar/EhViewer/issues/2652)
+* Android 9 以下打开评论区切屏后回来会闪退 [#2655](https://github.com/FooIbar/EhViewer/issues/2655)
+* 杂项修复
+
+
+## [1.14.3] - 2025-09-01
+
+### 新功能
+
+* 支持以 label: 语法搜索下载标签
+
+### Bug 修复
+
+* [阅读器] 关闭滤镜设置时崩溃 [#2573](https://github.com/FooIbar/EhViewer/issues/2573)
+* 编辑评论时上下文菜单缺少格式化选项
+* 某些情况下搜索相似画廊时出错
+
+
+## [1.14.2] - 2025-08-16
+
+### 改进
+
+* [下载] 支持将最低下载速度设为 0 [#2545](https://github.com/FooIbar/EhViewer/issues/2545)
+* [下载] 移除令人困惑的连接超时设置 [#2556](https://github.com/FooIbar/EhViewer/issues/2556)
+
+### Bug 修复
+
+* 下载速度计算不准确导致下载失败误报 [#2545](https://github.com/FooIbar/EhViewer/issues/2545)
+* 无法解析带有 location: 标签的画廊
+
+
+## [1.14.1] - 2025-07-31
+
+### 改进
+
+* 更新 GitHub 访问令牌
+
+
+## [1.14.0] - 2025-07-23
+
+### 重大变更
+
+* 默认隐藏分数为 -100 的评论
+* 迁移部分组件到 Material 3 Expressive
+
+### 新功能
+
+* [EH] 支持显示标签投票状态
+* 支持添加画廊标签时自动补全
+* [下载] 支持指定连接超时和最低响应速度 [#1915](https://github.com/FooIbar/EhViewer/issues/1915)
+* [阅读器] 支持反转物理按键控制 [#1962](https://github.com/FooIbar/EhViewer/issues/1962)
+* [高级] 支持禁用 QUIC 支持
+* [高级] 重新添加桌面版网站选项以绕过 Cloudflare [#2230](https://github.com/FooIbar/EhViewer/issues/2230)
+* 支持 Android 6.0 上的动画 WebP
+
+### 改进
+
+* 优化压缩包加载性能
+* 优化预加载策略
+* 更新日本语翻译
+* 为已选中的项目使用不同的颜色 [#2121](https://github.com/FooIbar/EhViewer/issues/2121)
+* 缩略图模式下显示已收藏图标 [#2128](https://github.com/FooIbar/EhViewer/issues/2128)
+* 迁移大部分解析器到 Rust 实现
+* 优化动画 WebP 解码性能 [#2415](https://github.com/FooIbar/EhViewer/issues/2415)
+* 优化标签自动补全命中率 [#2473](https://github.com/FooIbar/EhViewer/issues/2473)
+* 在状态栏后绘制半透明背景以提高对比度
+* 杂项优化
+
+### Bug 修复
+
+* 退出阅读器时崩溃
+* Android 8.0 以下的设备无法读取某些压缩包
+* 列表模式下点击画廊封面无法进入详情页
+* 点击某些评论时崩溃
+* 开启裁剪边缘时某些图片被不正确裁剪
+* 下载数较多时无网络时启动 app 时崩溃 [#2041](https://github.com/FooIbar/EhViewer/issues/2041)
+* 标签翻译数据无法更新 [#2075](https://github.com/FooIbar/EhViewer/issues/2075)
+* 画廊详情页面显示的收藏夹名称错误 [#2081](https://github.com/FooIbar/EhViewer/issues/2081)
+* 不使用 CI 频道时无法更新
+* 添加后移动快捷搜索闪退 [#2124](https://github.com/FooIbar/EhViewer/issues/2124)
+* 某些数据无法导入
+* App 位于后台时清除下载通知时崩溃
+* 杂项修复
+
+
+## [1.13.1] - 2024-11-11
+
+### 重大变更
+
+* 由于网站限制，移除搜索封面功能
+* 移除桌面版网站选项，默认使用 1280x 分辨率
+
+### 改进
+
+* 更新日本语翻译
+* 优化压缩包读取
+* 缓解某些小米系统上应用闪退 [#1826](https://github.com/FooIbar/EhViewer/issues/1826)
+* 杂项优化
+
+### Bug 修复
+
+* Android 9 上的下载失败误报 [#1914](https://github.com/FooIbar/EhViewer/issues/1914)
+
+
+## [1.13.0] - 2024-11-01
+
+### 重大变更
+
+* 不再捆绑 Cronet 库，在不支持 HttpEngine 的设备上回退到 OkHttp
+* 适配 E 站缩略图和 WebP 等相关变更
+
+### 改进
+
+* 使用磁力链接代替种子下载
+* 在搜索栏右侧显示论坛头像
+* 支持重置下载路径
+* 为 Android 10 以下且没有 DocumentsUI 的设备创建默认下载目录 [#1735](https://github.com/FooIbar/EhViewer/issues/1735)
+* 重新添加了强制使用 e-hentai 缩略图服务器的选项
+* 阅读器支持 PageUp/PageDown 和方向键上/下翻页 [#1801](https://github.com/FooIbar/EhViewer/issues/1801)
+* 未找到搜索结果时显示可能存在的警告 [#1787](https://github.com/FooIbar/EhViewer/issues/1787)
+* 更新了日本语翻译
+* 杂项优化
+
+### Bug 修复
+
+* 阅读器屏幕方向与手机屏幕方向不同时闪退 [#1779](https://github.com/FooIbar/EhViewer/issues/1779)
+* 下载文件哈希不匹配导致下载失败 [#1811](https://github.com/FooIbar/EhViewer/issues/1811)
+* 无法同时下载和查看 [#1822](https://github.com/FooIbar/EhViewer/issues/1822)
+* 杂项修复
+
+
+## [1.12.1] - 2024-09-28
+
+### 新功能
+
+* 屏蔽含有二维码的图片（位于高级设置）
+
+### 改进
+
+* 移除高级设置中的自定义 User Agent，改为桌面版网站选项
+* 画廊预览与画廊详情页面合并
+* 为快速搜索和下载标签列表添加了滚动条
+* 无网络条件下启动时自动转到下载页面
+* 杂项优化
+
+### Bug 修复
+
+* 从左到右或右到左模式观看使用鼠标滚轮无法翻页 [#1541](https://github.com/FooIbar/EhViewer/issues/1541)
+* 状态栏颜色未跟随阅读器主题变化 [#1542](https://github.com/FooIbar/EhViewer/issues/1542)
+* 打开 EH 设置时闪退 [#1563](https://github.com/FooIbar/EhViewer/issues/1563)
+* 画廊种子过多时显示没有种子 [#1561](https://github.com/FooIbar/EhViewer/issues/1561)
+* 加载大于 100 MB 的位图时崩溃
+* 阅读器加载小圆圈在黑色背景下不自动变色 [#1579](https://github.com/FooIbar/EhViewer/issues/1579)
+* 因闪退造成的无法挽回的下载失败 [#1602](https://github.com/FooIbar/EhViewer/issues/1602)
+* 某些情况下闪退 [#1548](https://github.com/FooIbar/EhViewer/issues/1548) [#1555](https://github.com/FooIbar/EhViewer/issues/1555) [#1568](https://github.com/FooIbar/EhViewer/issues/1568)
+* Android 7.0 及以下的设备无法加载图片 [#1633](https://github.com/FooIbar/EhViewer/issues/1633)
+* 某些情况下导入数据失败 [#1634](https://github.com/FooIbar/EhViewer/issues/1634)
+* 下载时创建重复文件夹 [#1619](https://github.com/FooIbar/EhViewer/issues/1619)
+* 滚动方向改变后预载图片不生效 [#1560](https://github.com/FooIbar/EhViewer/issues/1560)
+* 选择无效的下载位置后闪退
+* 杂项修复
+
+
 ## [1.12.0] - 2024-08-19
 
 ### 重大变更

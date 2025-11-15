@@ -1,12 +1,24 @@
 package com.hippo.ehviewer.spider
 
+import com.ehviewer.core.database.util.SimpleTagsConverter
+import com.ehviewer.core.files.read
+import com.ehviewer.core.files.write
+import com.ehviewer.core.model.GalleryDetail
+import com.ehviewer.core.model.GalleryInfo
+import com.ehviewer.core.model.GalleryTag
+import com.ehviewer.core.model.PowerStatus
+import com.ehviewer.core.model.TagNamespace
+import com.ehviewer.core.model.TagNamespace.Artist
+import com.ehviewer.core.model.TagNamespace.Character
+import com.ehviewer.core.model.TagNamespace.Cosplayer
+import com.ehviewer.core.model.TagNamespace.Female
+import com.ehviewer.core.model.TagNamespace.Group
+import com.ehviewer.core.model.TagNamespace.Location
+import com.ehviewer.core.model.TagNamespace.Male
+import com.ehviewer.core.model.TagNamespace.Mixed
+import com.ehviewer.core.model.TagNamespace.Other
+import com.ehviewer.core.model.TagNamespace.Parody
 import com.hippo.ehviewer.client.EhUrl
-import com.hippo.ehviewer.client.data.GalleryDetail
-import com.hippo.ehviewer.client.data.GalleryInfo
-import com.hippo.ehviewer.client.data.SimpleTagsConverter
-import com.hippo.ehviewer.client.data.TagNamespace
-import com.hippo.files.openInputStream
-import com.hippo.files.openOutputStream
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -14,12 +26,12 @@ import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import net.devrieze.xmlutil.serialization.kxio.decodeFromSource
+import net.devrieze.xmlutil.serialization.kxio.encodeToSink
 import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
-import nl.adaptivity.xmlutil.newWriter
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlElement
-import nl.adaptivity.xmlutil.xmlStreaming
 import okio.Path
 
 const val COMIC_INFO_FILE = "ComicInfo.xml"
@@ -42,18 +54,17 @@ fun GalleryInfo.getComicInfo(): ComicInfo {
     val otherTags = mutableListOf<String>()
     with(TagNamespace) {
         when (this@getComicInfo) {
-            is GalleryDetail -> tags.forEach { tagList ->
-                val list = tagList.filterNot { it == TAG_ORIGINAL || it.startsWith('_') }
-                when (val ns = TagNamespace(tagList.groupName)) {
+            is GalleryDetail -> tagGroups.forEach { group ->
+                val list = group.tags.filterNot { (text, power, _) -> text == TAG_ORIGINAL || power == PowerStatus.Weak }.map(GalleryTag::text)
+                when (val ns = group.namespace) {
                     Artist, Cosplayer -> artists.addAll(list)
                     Group -> groups.addAll(list)
                     Character -> characters.addAll(list)
                     Parody -> parodies.addAll(list)
-                    Other -> otherTags.addAll(list)
-                    Female, Male, Mixed -> ns.toPrefix()?.let { prefix ->
+                    Location, Other -> otherTags.addAll(list)
+                    Female, Male, Mixed -> ns.prefix.let { prefix ->
                         list.forEach { tag -> otherTags.add("$prefix:$tag") }
                     }
-
                     else -> Unit
                 }
             }
@@ -61,13 +72,13 @@ fun GalleryInfo.getComicInfo(): ComicInfo {
             else -> simpleTags?.forEach { tagString ->
                 val (namespace, tag) = tagString.split(':', limit = 2)
                     .takeIf { it.size == 2 } ?: return@forEach // Ignore temp tags that don't have namespace
-                when (val ns = TagNamespace(namespace)) {
+                when (val ns = from(namespace)) {
                     Artist, Cosplayer -> artists.add(tag)
                     Group -> groups.add(tag)
                     Character -> characters.add(tag)
                     Parody -> if (tag != TAG_ORIGINAL) parodies.add(tag)
-                    Other -> otherTags.add(tag)
-                    Female, Male, Mixed -> ns.toPrefix()?.let { otherTags.add("$it:$tag") }
+                    Location, Other -> otherTags.add(tag)
+                    Female, Male, Mixed -> ns.prefix.let { otherTags.add("$it:$tag") }
                     else -> Unit
                 }
             }
@@ -96,19 +107,11 @@ fun ComicInfo.toSimpleTags() = listOfNotNull(
     teams,
 ).flatten().ifEmpty { null }
 
-fun ComicInfo.write(file: Path) {
-    file.openOutputStream().bufferedWriter().use {
-        xmlStreaming.newWriter(it).use { writer ->
-            xml.encodeToWriter(writer, ComicInfo.serializer(), this)
-        }
-    }
-}
+fun writeComicInfo(info: ComicInfo, file: Path) = file.write { xml.encodeToSink(this, info) }
 
 fun readComicInfo(file: Path): ComicInfo? = runCatching {
-    file.openInputStream().bufferedReader().use {
-        xmlStreaming.newReader(it).use { reader ->
-            xml.decodeFromReader(ComicInfo.serializer(), reader)
-        }
+    file.read {
+        xml.decodeFromSource<ComicInfo>(this)
     }
 }.getOrNull()
 

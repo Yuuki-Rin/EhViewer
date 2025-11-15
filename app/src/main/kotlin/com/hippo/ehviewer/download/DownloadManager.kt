@@ -22,19 +22,31 @@ import androidx.compose.runtime.DisallowComposableCalls
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.toMutableStateList
-import androidx.compose.ui.util.lerp
+import androidx.compose.runtime.setValue
+import androidx.core.util.size
 import arrow.fx.coroutines.parMapNotNull
+import com.ehviewer.core.data.model.asEntity
+import com.ehviewer.core.database.model.DownloadArtist
+import com.ehviewer.core.database.model.DownloadInfo
+import com.ehviewer.core.database.model.DownloadLabel
+import com.ehviewer.core.files.delete
+import com.ehviewer.core.files.find
+import com.ehviewer.core.files.toOkioPath
+import com.ehviewer.core.files.toUri
+import com.ehviewer.core.model.BaseGalleryInfo
+import com.ehviewer.core.model.GalleryInfo
+import com.ehviewer.core.preferences.edit
+import com.ehviewer.core.util.logcat
+import com.ehviewer.core.util.mapNotNull
 import com.hippo.ehviewer.EhDB
 import com.hippo.ehviewer.Settings
-import com.hippo.ehviewer.client.data.BaseGalleryInfo
-import com.hippo.ehviewer.client.data.GalleryInfo
-import com.hippo.ehviewer.dao.DownloadArtist
-import com.hippo.ehviewer.dao.DownloadInfo
-import com.hippo.ehviewer.dao.DownloadLabel
-import com.hippo.ehviewer.image.Image
+import com.hippo.ehviewer.client.exception.FatalException
 import com.hippo.ehviewer.spider.COMIC_INFO_FILE
+import com.hippo.ehviewer.spider.SpeedTracker
 import com.hippo.ehviewer.spider.SpiderQueen
 import com.hippo.ehviewer.spider.SpiderQueen.Companion.SPIDER_INFO_FILENAME
 import com.hippo.ehviewer.spider.SpiderQueen.OnSpiderListener
@@ -44,17 +56,10 @@ import com.hippo.ehviewer.spider.readCompatFromPath
 import com.hippo.ehviewer.spider.toSimpleTags
 import com.hippo.ehviewer.util.AppConfig
 import com.hippo.ehviewer.util.insertWith
-import com.hippo.ehviewer.util.mapNotNull
 import com.hippo.ehviewer.util.runAssertingNotMainThread
-import com.hippo.files.delete
-import com.hippo.files.find
-import com.hippo.files.toOkioPath
-import com.hippo.files.toUri
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.transform
@@ -65,15 +70,12 @@ import logcat.LogPriority
 import okio.Path
 import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
-import splitties.preferences.edit
 
 object DownloadManager : OnSpiderListener, CoroutineScope {
     override val coroutineContext = Dispatchers.IO + Job()
 
     // All download info list
-    private val allInfoList = runAssertingNotMainThread {
-        (EhDB.getAllDownloadInfo() as MutableList).apply { sortWith(comparator()) }
-    }
+    private val allInfoList = runAssertingNotMainThread { EhDB.getAllDownloadInfo() as MutableList }
 
     val downloadInfoList: List<DownloadInfo>
         get() = allInfoList
@@ -82,7 +84,10 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
     private val mAllInfoMap = allInfoList.associateBy { it.gid } as MutableMap<Long, DownloadInfo>
 
     // All labels without default label
-    val labelList = runAssertingNotMainThread { EhDB.getAllDownloadLabelList() }.toMutableStateList()
+    // Create the SnapshotStateList first in case the database query is time-consuming
+    val labelList = mutableStateListOf<DownloadLabel>().apply {
+        addAll(runAssertingNotMainThread { EhDB.getAllDownloadLabelList() })
+    }
 
     // Store download info wait to start
     private val mWaitList = ArrayDeque<DownloadInfo>()
@@ -94,6 +99,21 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
     val notifyFlow = mutableNotifyFlow.asSharedFlow()
 
     private val mutex = Mutex()
+
+    private val sortMutex = Mutex()
+    private val sortMode
+        get() = SortMode.from(Settings.downloadSortMode.value)
+
+    var isInitialized by mutableStateOf(false)
+        private set
+
+    init {
+        launch {
+            val mode = sortMode
+            if (mode != SortMode.Default) sortDownloads(mode)
+            isInitialized = true
+        }
+    }
 
     fun containLabel(label: String?): Boolean {
         if (label == null) {
@@ -176,11 +196,13 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             }
         } else {
             // It is new download info
-            info = DownloadInfo(galleryInfo, galleryInfo.downloadDirname())
+            info = DownloadInfo(galleryInfo.asEntity(), galleryInfo.downloadDirname())
             info.label = label
             info.state = DownloadInfo.STATE_WAIT
             // Add to all download list and map
-            allInfoList.insertWith(info, comparator())
+            sortMutex.withLock {
+                allInfoList.insertWith(info, sortMode.comparator())
+            }
             mAllInfoMap[galleryInfo.gid] = info
 
             // Add to wait list
@@ -195,7 +217,7 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             ensureDownload()
 
             // Add it to history
-            EhDB.putHistoryInfo(info.galleryInfo)
+            EhDB.putHistoryInfo(info)
         }
     }
 
@@ -237,10 +259,12 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
     }.collectAsState(transform(info)).value
 
     suspend fun startAllDownload() {
-        val updateList = allInfoList.filter {
-            when (it.state) {
-                DownloadInfo.STATE_NONE, DownloadInfo.STATE_FAILED -> true
-                else -> false
+        val updateList = sortMutex.withLock {
+            allInfoList.filter {
+                when (it.state) {
+                    DownloadInfo.STATE_NONE, DownloadInfo.STATE_FAILED -> true
+                    else -> false
+                }
             }
         }
         if (updateList.isNotEmpty()) {
@@ -254,8 +278,8 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
         }
     }
 
-    suspend fun addDownload(downloadInfoList: List<DownloadInfo>) {
-        val comparator = comparator()
+    suspend fun addDownload(downloadInfoList: List<DownloadInfo>) = sortMutex.withLock {
+        val comparator = sortMode.comparator()
         downloadInfoList.forEach { info ->
             if (containDownloadInfo(info.gid)) return@forEach
 
@@ -285,11 +309,13 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
     }
 
     suspend fun restoreDownload(galleryInfo: BaseGalleryInfo, dirname: String) {
-        val info = DownloadInfo(galleryInfo, dirname)
+        val info = DownloadInfo(galleryInfo.asEntity(), dirname)
         info.state = DownloadInfo.STATE_NONE
 
         // Add to all download list and map
-        allInfoList.insertWith(info, comparator())
+        sortMutex.withLock {
+            allInfoList.insertWith(info, sortMode.comparator())
+        }
         mAllInfoMap[galleryInfo.gid] = info
 
         // Save to
@@ -301,16 +327,6 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
 
     suspend fun stopDownload(gid: Long) {
         val info = stopDownloadInternal(gid)
-        if (info != null) {
-            // Update listener
-            mutableNotifyFlow.emit(info)
-            // Ensure download
-            ensureDownload()
-        }
-    }
-
-    suspend fun stopCurrentDownload() {
-        val info = stopCurrentDownloadInternal()
         if (info != null) {
             // Update listener
             mutableNotifyFlow.emit(info)
@@ -358,7 +374,9 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             EhDB.removeDownloadInfo(info)
 
             // Remove all list and map
-            allInfoList.remove(info)
+            sortMutex.withLock {
+                allInfoList.remove(info)
+            }
             mAllInfoMap.remove(info.gid)
 
             // Update listener
@@ -381,7 +399,9 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             mAllInfoMap.remove(gid)
         }
         EhDB.removeDownloadInfo(list)
-        allInfoList.removeAll(list.toSet())
+        sortMutex.withLock {
+            allInfoList.removeAll(list.toSet())
+        }
 
         // Update listener
         list.forEach { mutableNotifyFlow.emit(it) }
@@ -390,7 +410,7 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
         ensureDownload()
     }
 
-    fun sortDownloads(mode: SortMode) {
+    suspend fun sortDownloads(mode: SortMode) = sortMutex.withLock {
         allInfoList.sortWith(mode.comparator())
     }
 
@@ -509,9 +529,11 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             val new = exist.copy(label = to)
             labelList.add(index, new)
             EhDB.updateDownloadLabel(new)
-            allInfoList.forEach {
-                if (it.label == from) {
-                    it.label = to
+            sortMutex.withLock {
+                allInfoList.forEach {
+                    if (it.label == from) {
+                        it.label = to
+                    }
                 }
             }
         }
@@ -527,21 +549,25 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             }
             removeAt(index)
         }
-        allInfoList.forEach {
-            if (it.label == label) {
-                it.label = null
+        sortMutex.withLock {
+            allInfoList.forEach {
+                if (it.label == label) {
+                    it.label = null
+                }
             }
         }
     }
 
     suspend fun readMetadataFromLocal() {
-        val list = allInfoList.mapNotNull {
-            val updateGallery = it.pages == 0 || it.simpleTags == null
-            val updateArtist = it.artistInfoList.isEmpty()
-            if (updateGallery || updateArtist) {
-                Triple(it, updateGallery, updateArtist)
-            } else {
-                null
+        val list = sortMutex.withLock {
+            allInfoList.mapNotNull {
+                val updateGallery = it.pages == 0 || it.simpleTags == null
+                val updateArtist = it.artistInfoList.isEmpty()
+                if (updateGallery || updateArtist) {
+                    Triple(it, updateGallery, updateArtist)
+                } else {
+                    null
+                }
             }
         }.parMapNotNull(concurrency = 5) { (info, updateGallery, updateArtist) ->
             info.downloadDir?.run {
@@ -582,13 +608,14 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
             }
         }
 
-        val galleryInfoList = mutableListOf<BaseGalleryInfo>()
-        list.forEach { (info, artists) ->
-            info?.let {
-                galleryInfoList.add(it)
-            }
-            artists?.let { (gid, updateList) ->
-                EhDB.putDownloadArtist(gid, updateList)
+        val galleryInfoList = buildList {
+            list.forEach { (info, artists) ->
+                info?.let {
+                    add(it)
+                }
+                artists?.let { (gid, updateList) ->
+                    EhDB.putDownloadArtist(gid, updateList)
+                }
             }
         }
         if (galleryInfoList.isNotEmpty()) EhDB.updateGalleryInfo(galleryInfoList)
@@ -606,9 +633,9 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
         }
     }
 
-    override fun onGet509(index: Int) {
+    override fun onFatal(error: FatalException) {
         launch {
-            mDownloadListener?.onGet509()
+            mDownloadListener?.onFatal(error)
             stopAllDownload()
         }
     }
@@ -683,19 +710,11 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
         }
     }
 
-    override fun onGetImageSuccess(index: Int, image: Image?) {
-        // Ignore
-    }
-
-    override fun onGetImageFailure(index: Int, error: String?) {
-        // Ignore
-    }
-
     interface DownloadListener {
         /**
-         * Get 509 error
+         * Fatal error
          */
-        fun onGet509()
+        fun onFatal(error: FatalException)
 
         /**
          * Start download
@@ -719,28 +738,24 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
     }
 
     private val mSpeedReminder = object {
-        private val mContentLengthMap = SparseLongArray()
-        private val mReceivedSizeMap = SparseLongArray()
+        private val contentLengthMap = SparseLongArray()
+        private val receivedSizeMap = SparseLongArray()
+        private val tracker = SpeedTracker()
         private val mutex = Mutex()
-        private var mBytesRead = 0L
-        private var oldSpeed = -1L
         private var currentJob: Job? = null
         fun start() {
             if (currentJob == null) {
                 currentJob = launch {
-                    while (true) {
-                        runInternal()
-                    }
+                    tracker.speedFlow().collect(::updateSpeed)
                 }
             }
         }
 
         suspend fun stop() {
-            mBytesRead = 0
-            oldSpeed = -1
+            tracker.reset()
             mutex.withLock {
-                mContentLengthMap.clear()
-                mReceivedSizeMap.clear()
+                contentLengthMap.clear()
+                receivedSizeMap.clear()
             }
             currentJob?.cancel()
             currentJob = null
@@ -748,48 +763,43 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
 
         suspend fun onDownload(index: Int, contentLength: Long, receivedSize: Long, bytesRead: Int) {
             mutex.withLock {
-                mContentLengthMap.put(index, contentLength)
-                mReceivedSizeMap.put(index, receivedSize)
+                contentLengthMap.put(index, contentLength)
+                receivedSizeMap.put(index, receivedSize)
             }
-            mBytesRead += bytesRead.toLong()
+            tracker.track(bytesRead)
         }
 
         suspend fun onDone(index: Int) {
             mutex.withLock {
-                mContentLengthMap.delete(index)
-                mReceivedSizeMap.delete(index)
+                contentLengthMap.delete(index)
+                receivedSizeMap.delete(index)
             }
         }
 
         suspend fun onFinish() {
             mutex.withLock {
-                mContentLengthMap.clear()
-                mReceivedSizeMap.clear()
+                contentLengthMap.clear()
+                receivedSizeMap.clear()
             }
         }
 
-        private suspend fun runInternal() {
+        private suspend fun updateSpeed(speed: Long) {
             mCurrentTask?.let { info ->
-                var newSpeed = mBytesRead / 2
-                if (oldSpeed != -1L) {
-                    newSpeed = lerp(oldSpeed, newSpeed, 0.75f)
-                }
-                oldSpeed = newSpeed
-                info.speed = newSpeed
+                info.speed = speed
 
                 // Calculate remaining
                 if (info.total <= 0) {
                     info.remaining = -1
-                } else if (newSpeed == 0L) {
+                } else if (speed == 0L) {
                     info.remaining = 300L * 24L * 60L * 60L * 1000L // 300 days
                 } else {
                     var downloadingCount = 0
                     var downloadingContentLengthSum = 0L
                     var totalSize = 0L
                     mutex.withLock {
-                        for (i in 0..<mContentLengthMap.size()) {
-                            val contentLength = mContentLengthMap.valueAt(i)
-                            val receivedSize = mReceivedSizeMap.valueAt(i)
+                        for (i in 0..<contentLengthMap.size) {
+                            val contentLength = contentLengthMap.valueAt(i)
+                            val receivedSize = receivedSizeMap.valueAt(i)
                             downloadingCount++
                             downloadingContentLengthSum += contentLength
                             totalSize += contentLength - receivedSize
@@ -797,20 +807,16 @@ object DownloadManager : OnSpiderListener, CoroutineScope {
                     }
                     if (downloadingCount != 0) {
                         totalSize += downloadingContentLengthSum * (info.total - info.downloaded - downloadingCount) / downloadingCount
-                        info.remaining = totalSize / newSpeed * 1000
+                        info.remaining = totalSize / speed * 1000
                     }
                 }
                 mDownloadListener?.onDownload(info)
                 mutableNotifyFlow.emit(info)
             }
-            mBytesRead = 0
-            delay(2000)
         }
     }
 
     private const val TAG = "DownloadManager"
-
-    private fun comparator() = SortMode.from(Settings.downloadSortMode.value).comparator()
 }
 
 var downloadLocation: Path
@@ -839,4 +845,4 @@ var downloadLocation: Path
 
 val DownloadInfo.downloadDir get() = dirname?.let { downloadLocation / it }
 val DownloadInfo.archiveFile get() = downloadDir?.run { find("$gid.cbz") ?: find("$gid.zip") }
-val GalleryInfo.tempDownloadDir get() = AppConfig.getTempDir("$gid")?.toOkioPath()
+val GalleryInfo.tempDownloadDir get() = AppConfig.externalTempPersistDir?.let { it / "$gid" }

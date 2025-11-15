@@ -11,11 +11,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import com.ehviewer.core.ui.component.RollingNumber
 
 @Composable
 fun FundsItem(
     type: String,
-    amount: String,
+    amount: Int,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = LocalTextStyle.current,
 ) {
@@ -27,6 +28,9 @@ fun FundsItem(
         Badge(containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Text(text = type)
         }
-        Text(text = amount, style = textStyle)
+        RollingNumber(number = amount, style = textStyle, separator = true)
+        if (type == "GP") {
+            Text(text = "k")
+        }
     }
 }

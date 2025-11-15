@@ -1,14 +1,14 @@
 package com.hippo.ehviewer.client.parser
 
-import android.os.Parcelable
 import com.hippo.ehviewer.client.exception.InsufficientFundsException
 import com.hippo.ehviewer.client.exception.ParseException
 import java.nio.ByteBuffer
-import kotlinx.parcelize.Parcelize
+import kotlin.random.Random
 import kotlinx.serialization.Serializable
 
 object HomeParser {
-    private val PATTERN_FUNDS = Regex("Available: ([\\d,]+) Credits.*Available: ([\\d,]+) kGP", RegexOption.DOT_MATCHES_ALL)
+    private val TorrentKeyRegex = Regex("Your current key is: <[^>]*>([^<]*)<")
+    private val FundsRegex = Regex("Available: ([\\d,]+) Credits.*Available: ([\\d,]+) kGP", RegexOption.DOT_MATCHES_ALL)
     private const val INSUFFICIENT_FUNDS = "Insufficient funds."
 
     fun parse(body: ByteBuffer) = runCatching {
@@ -21,24 +21,25 @@ object HomeParser {
         }
     }
 
+    fun parseTorrentKey(body: String) = TorrentKeyRegex.find(body)?.run { groupValues[1] }
+        ?: throw ParseException("Parse torrent key error")
+
     fun parseFunds(body: String): Funds {
-        PATTERN_FUNDS.find(body)?.groupValues?.run {
-            val fundsC = ParserUtils.parseInt(get(1), 0)
-            val fundsGP = ParserUtils.parseInt(get(2), 0) * 1000
-            return Funds("%,d+".format(fundsGP), "%,d".format(fundsC))
+        FundsRegex.find(body)?.run {
+            val fundsC = ParserUtils.parseInt(groupValues[1], 0)
+            val fundsGP = ParserUtils.parseInt(groupValues[2], 0)
+            return Funds(fundsGP, fundsC)
         }
         throw ParseException("Parse funds error")
     }
 
-    @Parcelize
-    data class Result(val limits: Limits, val funds: Funds) : Parcelable
+    data class Result(val limits: Limits, val funds: Funds, private val id: Int = Random.nextInt())
 }
 
-@Parcelize
-data class Funds(val gp: String, val credit: String) : Parcelable
-
-@Parcelize
 @Serializable
-data class Limits(val current: Int, val maximum: Int, val resetCost: Int) : Parcelable
+data class Funds(val gp: Int, val credit: Int)
+
+@Serializable
+data class Limits(val current: Int, val maximum: Int, val resetCost: Int)
 
 private external fun parseLimit(body: ByteBuffer, limit: Int = body.limit()): Int

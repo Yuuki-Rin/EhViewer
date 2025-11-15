@@ -1,30 +1,37 @@
 package com.hippo.ehviewer.ui.legacy
 
-import android.graphics.drawable.Animatable
 import android.graphics.drawable.DrawableWrapper
 import android.text.Html
-import android.widget.TextView
 import coil3.asDrawable
+import coil3.decode.DecodeUtils
 import coil3.imageLoader
 import coil3.request.crossfade
-import coil3.size.Size
+import coil3.size.Scale
+import com.ehviewer.core.util.toIntOrDefault
 import com.hippo.ehviewer.ktbuilder.imageRequest
+import kotlin.math.roundToInt
+import splitties.init.appCtx
 
-class CoilImageGetter(
-    private val textView: TextView,
-) : Html.ImageGetter {
+private val UrlRegex = "(?:[^-]+-){2}(\\d+)-(\\d+)-[^_]+_([^.]+)".toRegex()
+
+class CoilImageGetter(private val onSuccess: () -> Unit) : Html.ImageGetter {
     override fun getDrawable(source: String) = object : DrawableWrapper(null) {}.apply {
-        with(textView.context) {
+        UrlRegex.find(source)?.run {
+            val srcWidth = groupValues[1].toInt()
+            val srcHeight = groupValues[2].toInt()
+            val dstWidth = groupValues[3].toIntOrDefault(200)
+            val dstHeight = dstWidth / 2 * 3
+            val multiplier = DecodeUtils.computeSizeMultiplier(srcWidth, srcHeight, dstWidth, dstHeight, Scale.FIT)
+            setBounds(0, 0, (srcWidth * multiplier).roundToInt(), (srcHeight * multiplier).roundToInt())
+        } ?: setBounds(0, 0, 200, 300)
+        with(appCtx) {
             imageLoader.enqueue(
                 imageRequest {
                     data(source)
                     crossfade(false)
-                    size(Size.ORIGINAL)
-                    target { drawable ->
-                        setDrawable(drawable.asDrawable(resources))
-                        if (drawable is Animatable) drawable.start()
-                        setBounds(0, 0, intrinsicWidth, intrinsicHeight)
-                        textView.text = textView.text
+                    target { image ->
+                        setDrawable(image.asDrawable(resources))
+                        onSuccess()
                     }
                 },
             )

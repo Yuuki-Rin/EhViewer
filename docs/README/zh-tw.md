@@ -8,10 +8,14 @@
   </a>
   <span> | </span>
   <strong>正體中文</strong>
+  <span> | </span>
+  <a href="/docs/README/ja.md">
+  日本語
+  </a>
 </p>
 
 <h1 align="center">
-  <img src="https://github.com/Ehviewer-Overhauled/Art/blob/master/launcher_icon-web.svg" width="200" alt="EhViewer">
+  <img src="https://github.com/FooIbar/EhViewer-art/blob/master/launcher_icon-web.svg" width="200" alt="EhViewer">
   <br>EhViewer<br>
 </h1>
 
@@ -65,19 +69,19 @@
 
 # 下載
 
-| 變種          | 功能                    |
-|-------------|-----------------------|
-| Default     | Android 8.0+, 完全支援    |
-| Marshmallow | Android 6.0-7.1, 有限支援 |
+| 變種          | 最低 Android 版本 | 備註       |
+|-------------|---------------|----------|
+| Default     | 8.0           | 完全支援     |
+| Marshmallow | 6.0           | 有限支援，無保證 |
 
 <a href="https://github.com/FooIbar/EhViewer/releases">
-<img alt="Get it on GitHub" src="https://github.com/Ehviewer-Overhauled/Art/blob/master/get-it-on-github.svg" width="200px"/>
+<img alt="Get it on GitHub" src="https://github.com/FooIbar/EhViewer-art/blob/master/get-it-on-github.svg" width="200px"/>
 </a>
 
 # 截圖
 
-![screenshot-01](https://github.com/Ehviewer-Overhauled/Art/blob/master/screenshot-01.png)
-![screenshot-02](https://github.com/Ehviewer-Overhauled/Art/blob/master/screenshot-02.png)
+![screenshots-01](https://github.com/FooIbar/EhViewer-art/blob/master/screenshots-01.webp)
+![screenshots-02](https://github.com/FooIbar/EhViewer-art/blob/master/screenshots-02.webp)
 
 # 感謝
 
@@ -91,7 +95,6 @@
 - [Coil](https://coil-kt.github.io/coil/)
 - [Compose Destinations](https://composedestinations.rafaelcosta.xyz/)
 - [libarchive](https://www.libarchive.org/)
-- [jsoup](https://jsoup.org/)
 
 # 許可證書
 

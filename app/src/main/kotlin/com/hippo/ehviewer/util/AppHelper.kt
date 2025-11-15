@@ -18,7 +18,9 @@ package com.hippo.ehviewer.util
 import android.app.Activity
 import android.content.Intent
 import android.widget.Toast
-import com.hippo.ehviewer.R
+import arrow.core.Either
+import arrow.core.getOrElse
+import com.ehviewer.core.i18n.R
 
 object AppHelper {
     fun share(from: Activity, text: String?): Boolean {
@@ -27,11 +29,10 @@ object AppHelper {
         sendIntent.putExtra(Intent.EXTRA_TEXT, text)
         sendIntent.type = "text/plain"
         val chooser = Intent.createChooser(sendIntent, from.getString(R.string.share))
-        return runCatching {
+        return Either.catch {
             from.startActivity(chooser)
             true
         }.getOrElse {
-            ExceptionUtils.throwIfFatal(it)
             Toast.makeText(from, R.string.error_cant_find_activity, Toast.LENGTH_SHORT).show()
             false
         }

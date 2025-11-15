@@ -53,66 +53,64 @@ object EhUrl {
     const val ORIGIN_E = REFERER_E
 
     val domain: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> DOMAIN_E
             SITE_EX -> DOMAIN_EX
             else -> DOMAIN_E
         }
 
     val apiUrl: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> API_E
             SITE_EX -> API_EX
             else -> API_E
         }
 
     val referer: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> REFERER_E
             SITE_EX -> REFERER_EX
             else -> REFERER_E
         }
 
     val origin: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> ORIGIN_E
             SITE_EX -> ORIGIN_EX
             else -> ORIGIN_E
         }
 
-    val uConfigUrl: String
-        get() = when (Settings.gallerySite) {
-            SITE_E -> URL_UCONFIG_E
-            SITE_EX -> URL_UCONFIG_EX
-            else -> URL_UCONFIG_E
-        }
+    fun getUConfigUrl(gallerySite: Int = Settings.gallerySite.value) = when (gallerySite) {
+        SITE_E -> URL_UCONFIG_E
+        SITE_EX -> URL_UCONFIG_EX
+        else -> URL_UCONFIG_E
+    }
 
     val myTagsUrl: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> URL_MY_TAGS_E
             SITE_EX -> URL_MY_TAGS_EX
             else -> URL_MY_TAGS_E
         }
 
     val popularUrl: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> URL_POPULAR_E
             SITE_EX -> URL_POPULAR_EX
             else -> URL_POPULAR_E
         }
 
     val imageSearchUrl: String
-        get() = when (Settings.gallerySite) {
+        get() = when (Settings.gallerySite.value) {
             SITE_E -> URL_IMAGE_SEARCH_E
             SITE_EX -> URL_IMAGE_SEARCH_EX
             else -> URL_IMAGE_SEARCH_E
         }
 
-    fun getGalleryDetailUrl(gid: Long, token: String, index: Int = 0, allComment: Boolean = false) =
-        ehUrl(listOf("g", "$gid", token)) {
-            if (index != 0) addQueryParameter("p", "$index")
-            if (allComment) addQueryParameter("hc", "1")
-        }.buildString()
+    fun getGalleryDetailUrl(gid: Long, token: String, index: Int = 0, allComment: Boolean = false) = ehUrl(listOf("g", "$gid", token)) {
+        if (index != 0) addQueryParameter("p", "$index")
+        if (allComment) addQueryParameter("hc", "1")
+    }.buildString()
 
     fun getGalleryMultiPageViewerUrl(gid: Long, token: String) = ehUrl(listOf("mpv", "$gid", token)).buildString()
 
@@ -126,13 +124,22 @@ object EhUrl {
         addQueryParameter("act", "addfav")
     }.buildString()
 
-    fun getDownloadArchive(gid: Long, token: String, or: String) = ehUrl("archiver.php") {
+    fun getArchiveUrl(gid: Long, token: String) = ehUrl("archiver.php") {
         addQueryParameter("gid", "$gid")
         addQueryParameter("token", token)
-        addQueryParameter("or", or)
+    }.buildString()
+
+    fun getTorrentUrl(gid: Long, token: String) = ehUrl("gallerytorrents.php") {
+        addQueryParameter("gid", "$gid")
+        addQueryParameter("t", token)
     }.buildString()
 
     fun getTagDefinitionUrl(tag: String) = "https://ehwiki.org/wiki/" + tag.replace(' ', '_')
+
+    fun getTrackerUrl(gid: Long, key: String?) = ehUrl(
+        path = listOfNotNull("$gid", key, "announce"),
+        host = "ehtracker.org",
+    ).buildString()
 }
 
 inline fun ehUrl(path: String? = null, host: String = EhUrl.domain, builder: ParametersBuilder.() -> Unit) = ehUrl(

@@ -3,7 +3,6 @@ package com.hippo.ehviewer.ui.reader
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,12 +17,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.core.graphics.alpha
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
 import androidx.core.graphics.red
-import com.hippo.ehviewer.R
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.ui.component.RollingNumber
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.asMutableState
 
@@ -38,7 +37,7 @@ fun ColorFilterSetting() = Column(modifier = Modifier.verticalScroll(rememberScr
         val brightness = Settings.customBrightnessValue.asMutableState()
         SliderChoice(
             startSlot = { Icon(imageVector = Icons.Default.Brightness5, contentDescription = null) },
-            endSlot = { Text(modifier = Modifier.width(24.dp), text = "${brightness.value}") },
+            endSlot = { RollingNumber(number = brightness.value, length = 3) },
             range = -75..100,
             field = brightness,
         )
@@ -62,25 +61,25 @@ fun ColorFilterSetting() = Column(modifier = Modifier.verticalScroll(rememberScr
         Column {
             SliderChoice(
                 startSlot = { Text(text = "R") },
-                endSlot = { Text(modifier = Modifier.width(24.dp), text = "$r") },
+                endSlot = { RollingNumber(number = r, length = 3) },
                 range = 0..255,
                 field = rf,
             )
             SliderChoice(
                 startSlot = { Text(text = "G") },
-                endSlot = { Text(modifier = Modifier.width(24.dp), text = "$g") },
+                endSlot = { RollingNumber(number = g, length = 3) },
                 range = 0..255,
                 field = gf,
             )
             SliderChoice(
                 startSlot = { Text(text = "B") },
-                endSlot = { Text(modifier = Modifier.width(24.dp), text = "$b") },
+                endSlot = { RollingNumber(number = b, length = 3) },
                 range = 0..255,
                 field = bf,
             )
             SliderChoice(
                 startSlot = { Text(text = "A") },
-                endSlot = { Text(modifier = Modifier.width(24.dp), text = "$a") },
+                endSlot = { RollingNumber(number = a, length = 3) },
                 range = 0..255,
                 field = af,
             )
@@ -88,8 +87,8 @@ fun ColorFilterSetting() = Column(modifier = Modifier.verticalScroll(rememberScr
     }
     SpinnerChoice(
         title = stringResource(id = R.string.pref_color_filter_mode),
-        entries = stringArrayResource(id = R.array.color_filter_modes),
-        values = arrayOf("0", "1", "2", "3", "4", "5"),
+        entries = stringArrayResource(id = com.hippo.ehviewer.R.array.color_filter_modes),
+        values = listOf(0, 1, 2, 3, 4, 5),
         field = Settings.colorFilterMode.asMutableState(),
     )
     SwitchChoice(

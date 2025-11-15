@@ -22,47 +22,47 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.paging.compose.LazyPagingItems
+import com.ehviewer.core.model.GalleryInfo
+import com.ehviewer.core.ui.util.launchInVM
+import com.ehviewer.core.ui.util.rememberUpdatedStateInVM
 import com.hippo.ehviewer.EhDB
-import com.hippo.ehviewer.client.data.GalleryInfo
-import com.hippo.ehviewer.ui.tools.launchInVM
-import com.hippo.ehviewer.ui.tools.rememberUpdatedStateInVM
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 
 object FavouriteStatusRouter {
-    fun modifyFavourites(gid: Long, slot: Int) {
-        _globalFlow.tryEmit(gid to slot)
+    fun notify(galleryInfo: GalleryInfo) {
+        globalFlow.tryEmit(galleryInfo)
     }
 
     private val listenerScope = CoroutineScope(Dispatchers.IO)
 
-    private val _globalFlow = MutableSharedFlow<Pair<Long, Int>>(extraBufferCapacity = 1).apply {
+    val globalFlow = MutableSharedFlow<GalleryInfo>(extraBufferCapacity = 1).apply {
         listenerScope.launch {
-            collect { (gid, slot) ->
-                EhDB.updateFavoriteSlot(gid, slot)
+            collect { info ->
+                EhDB.updateFavoriteSlot(info.gid, info.favoriteSlot)
             }
         }
     }
 
-    val globalFlow = _globalFlow.asSharedFlow()
+    suspend fun collect(collector: FlowCollector<GalleryInfo>): Nothing = globalFlow.collect(collector)
 
     @Stable
     @Composable
     inline fun <R> collectAsState(initial: GalleryInfo, crossinline transform: @DisallowComposableCalls (Int) -> R) = remember {
-        globalFlow.transform { (gid, slot) -> if (initial.gid == gid) emit(transform(slot)) }
+        globalFlow.transform { info -> if (initial.gid == info.gid) emit(transform(info.favoriteSlot)) }
     }.collectAsState(transform(initial.favoriteSlot))
 
     @Composable
     fun Observe(list: LazyPagingItems<out GalleryInfo>) {
         val realList by rememberUpdatedStateInVM(newValue = list.itemSnapshotList.items)
         launchInVM {
-            globalFlow.collect { (gid, newSlot) ->
-                realList.forEach { info ->
-                    if (info.gid == gid) info.favoriteSlot = newSlot
+            collect { info ->
+                realList.forEach { item ->
+                    if (item.gid == info.gid) item.favoriteSlot = info.favoriteSlot
                 }
             }
         }

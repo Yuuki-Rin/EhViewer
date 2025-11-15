@@ -1,12 +1,13 @@
 package com.hippo.ehviewer.ui.screen
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,20 +21,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.hippo.ehviewer.R
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.ui.icons.EhIcons
+import com.ehviewer.core.ui.icons.big.SadAndroid
+import com.ehviewer.core.util.withUIContext
 import com.hippo.ehviewer.client.EhEngine
-import com.hippo.ehviewer.icons.EhIcons
-import com.hippo.ehviewer.icons.big.SadAndroid
+import com.hippo.ehviewer.ui.Screen
 import com.hippo.ehviewer.util.displayString
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
-import eu.kanade.tachiyomi.util.lang.withUIContext
 import moe.tarsin.coroutines.runSuspendCatching
+import moe.tarsin.navigate
 
 @Destination<RootGraph>
 @Composable
-fun ProgressScreen(gid: Long, token: String, page: Int, navigator: DestinationsNavigator) {
+fun AnimatedVisibilityScope.ProgressScreen(gid: Long, token: String, page: Int, navigator: DestinationsNavigator) = Screen(navigator) {
     val wrong = stringResource(id = R.string.error_something_wrong_happened)
     var error by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(error) {
@@ -46,7 +49,7 @@ fun ProgressScreen(gid: Long, token: String, page: Int, navigator: DestinationsN
                 }.onSuccess {
                     withUIContext {
                         navigator.popBackStack()
-                        navigator.navigate(gid asDstPageTo page with it)
+                        navigate(gid asDstPageTo page with it)
                     }
                 }.onFailure {
                     error = it.displayString()
@@ -71,12 +74,12 @@ fun ProgressScreen(gid: Long, token: String, page: Int, navigator: DestinationsN
                     tint = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = wrong,
+                    text = error,
                     style = MaterialTheme.typography.headlineMedium,
                 )
             }
         } else {
-            CircularProgressIndicator()
+            CircularWavyProgressIndicator()
         }
     }
 }

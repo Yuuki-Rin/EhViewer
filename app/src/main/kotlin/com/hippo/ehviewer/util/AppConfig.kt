@@ -17,12 +17,19 @@ package com.hippo.ehviewer.util
 
 import android.os.Build
 import android.os.Environment
+import com.ehviewer.core.files.exists
+import com.ehviewer.core.files.isDirectory
+import com.ehviewer.core.files.mkdirs
 import com.hippo.ehviewer.BuildConfig
 import com.hippo.ehviewer.client.parser.ParserUtils
 import java.io.File
+import okio.Path
+import okio.Path.Companion.toOkioPath
 import splitties.init.appCtx
 
 fun File.ensureDirectory() = if (exists()) isDirectory else mkdirs()
+
+fun Path.ensureDirectory() = if (exists()) isDirectory else mkdirs().let { true }
 
 object AppConfig {
     const val APP_DIRNAME = "EhViewer"
@@ -30,6 +37,7 @@ object AppConfig {
     private const val TEMP = "temp"
     private const val PARSE_ERROR = "parse_error"
     private const val CRASH = "crash"
+    private const val TAG_TRANSLATIONS = "tag-translations"
 
     private val abi = Build.SUPPORTED_ABIS[0].takeIf {
         it in setOf("arm64-v8a", "x86_64", "armeabi-v7a")
@@ -51,25 +59,22 @@ object AppConfig {
             return null
         }
 
-    private fun getDirInExternalAppDir(filename: String, create: Boolean = true) =
-        externalAppDir?.run { File(this, filename).takeIf { if (create) it.ensureDirectory() else it.isDirectory } }
+    private fun getDirInExternalAppDir(filename: String, create: Boolean = true) = externalAppDir?.run { File(this, filename).takeIf { if (create) it.ensureDirectory() else it.isDirectory } }
 
     val defaultDownloadDir: File?
         get() = getDirInExternalAppDir(DOWNLOAD, false)
-
-    fun getTempDir(filename: String): File? = getDirInExternalAppDir(TEMP)?.run { File(this, filename) }
-
-    val externalTempDir: File?
-        get() = appCtx.externalCacheDir?.run { File(this, TEMP).takeIf { it.ensureDirectory() } }
-
+    val externalTempPersistDir
+        get() = getDirInExternalAppDir(TEMP)?.toOkioPath()
     val externalParseErrorDir: File?
         get() = getDirInExternalAppDir(PARSE_ERROR)
     val externalCrashDir: File?
         get() = getDirInExternalAppDir(CRASH)
-    val tempDir: File?
-        get() = appCtx.cacheDir.run { File(this, TEMP).takeIf { it.ensureDirectory() } }
+    val tagTranslationsDir
+        get() = (appCtx.filesDir.toOkioPath() / TAG_TRANSLATIONS).apply { check(ensureDirectory()) }
 
-    fun createTempFile(): File? = FileUtils.createTempFile(tempDir, null)
-
-    fun getFilesDir(name: String) = File(appCtx.filesDir, name).takeIf { it.ensureDirectory() }
+    // Following locations will be clear on app startup
+    val tempDir
+        get() = (appCtx.cacheDir.toOkioPath() / TEMP).apply { check(ensureDirectory()) }
+    val externalTempDir
+        get() = appCtx.externalCacheDir?.toOkioPath()?.let { it / TEMP }?.apply { check(ensureDirectory()) }
 }

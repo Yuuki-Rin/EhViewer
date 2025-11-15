@@ -1,48 +1,22 @@
-import com.mikepenz.aboutlibraries.plugin.DuplicateMode.MERGE
-import com.mikepenz.aboutlibraries.plugin.DuplicateRule.GROUP
-import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
+import com.mikepenz.aboutlibraries.plugin.DuplicateMode
+import com.mikepenz.aboutlibraries.plugin.DuplicateRule
+import java.util.regex.Pattern
 
 val isRelease: Boolean
     get() = gradle.startParameter.taskNames.any { it.contains("Release") }
 
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.ehviewer.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.spotless)
-    alias(libs.plugins.aboutlibrariesPlugin)
-    alias(libs.plugins.composeCompilerReportGenerator)
+    alias(libs.plugins.aboutlibraries)
+    alias(libs.plugins.aboutlibrariesAndroid)
     alias(libs.plugins.baselineprofile)
 }
 
 val supportedAbis = arrayOf("arm64-v8a", "x86_64", "armeabi-v7a")
 
 android {
-    compileSdk = 35
-    buildToolsVersion = "35.0.0"
-    ndkVersion = "27.1.12297006"
-
-    androidResources {
-        generateLocaleConfig = true
-        localeFilters += listOf(
-            "zh",
-            "zh-rCN",
-            "zh-rHK",
-            "zh-rTW",
-            "es",
-            "ja",
-            "ko",
-            "fr",
-            "de",
-            "th",
-            "tr",
-            "nb-rNO",
-        )
-    }
-
     splits {
         abi {
             isEnable = true
@@ -78,15 +52,12 @@ android {
     }.standardOutput.asText.get().trim().removePrefix("https://github.com/").removePrefix("git@github.com:")
         .removeSuffix(".git")
 
-    val chromeVersion = rootProject.layout.projectDirectory.file("chrome-for-testing/LATEST_RELEASE_STABLE").asFile
-        .readText().substringBefore('.')
+    val chromeVersion = rootProject.layout.projectDirectory.file("chrome.version").asFile.readText().trim()
 
     defaultConfig {
         applicationId = "moe.tarsin.ehviewer"
-        minSdk = 26
-        targetSdk = 35
-        versionCode = 180059
-        versionName = "1.13.0"
+        versionCode = 180063
+        versionName = "1.15.0"
         versionNameSuffix = "-SNAPSHOT"
         buildConfigField("String", "RAW_VERSION_NAME", "\"$versionName${versionNameSuffix.orEmpty()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"$commitSha\"")
@@ -99,19 +70,15 @@ android {
             }
             debugSymbolLevel = "FULL"
         }
-        externalNativeBuild {
-            cmake {
-                arguments += "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
-            }
-        }
     }
 
     flavorDimensions += "api"
 
     productFlavors {
-        create("default")
+        create("default") {
+            minSdk = 26
+        }
         create("marshmallow") {
-            minSdk = 23
             applicationIdSuffix = ".m"
             versionNameSuffix = "-M"
         }
@@ -127,16 +94,46 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    lint {
-        checkReleaseBuilds = false
-        disable += setOf("MissingTranslation", "MissingQuantity")
-        error += setOf("InlinedApi")
-    }
-
     packaging {
         dex {
             useLegacyPackaging = false
         }
+        jniLibs {
+            excludes += "**/libdatastore_shared_counter.so" // DataStore multi-process
+        }
+        resources {
+            // Required by Layout Inspector
+            pickFirsts += "/META-INF/androidx.compose.ui_ui.version"
+
+            excludes += listOf(
+                "/META-INF/**",
+                "/kotlin/**",
+                "**.txt",
+                "**.bin",
+            )
+        }
+    }
+
+    androidResources {
+        ignoreAssetsPatterns += listOf(
+            "!PublicSuffixDatabase.list", // OkHttp
+            "!composepreference.preference.generated.resources",
+        )
+        generateLocaleConfig = true
+        localeFilters += listOf(
+            "zh",
+            "zh-rCN",
+            "zh-rHK",
+            "zh-rTW",
+            "es",
+            "ja",
+            "ko",
+            "fr",
+            "de",
+            "th",
+            "tr",
+            "nb-rNO",
+        )
     }
 
     dependenciesInfo.includeInApk = false
@@ -168,45 +165,33 @@ android {
     namespace = "com.hippo.ehviewer"
 }
 
-composeCompiler {
-    featureFlags = setOf(ComposeFeatureFlag.OptimizeNonSkippingGroups)
-}
-
-androidComponents {
-    onVariants(selector().withBuildType("release")) {
-        it.packaging.resources.excludes.addAll(
-            "/META-INF/**",
-            "/kotlin/**",
-            "**.txt",
-            "**.bin",
-        )
-    }
-}
-
 baselineProfile {
     mergeIntoMain = true
 }
 
 dependencies {
+    implementation(projects.core.data)
+    implementation(projects.core.i18n)
+    implementation(projects.core.ui)
+
     // https://developer.android.com/jetpack/androidx/releases/activity
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.browser)
 
-    // https://developer.android.com/jetpack/androidx/releases/compose-material3
-    api(platform(libs.compose.bom))
-    implementation(libs.bundles.compose)
-
     implementation(libs.compose.destinations.core)
     ksp(libs.compose.destinations.compiler)
+
+    implementation(libs.compose.preference) {
+        // R8 won't remove it because it adds a content provider
+        exclude(group = "org.jetbrains.compose.components", module = "components-resources")
+    }
 
     implementation(libs.androidx.core)
     implementation(libs.androidx.core.splashscreen)
 
-    implementation(libs.androidx.constraintlayout.compose)
     implementation(libs.androidx.datastore)
-    implementation(libs.androidx.graphics.path)
 
     // https://developer.android.com/jetpack/androidx/releases/lifecycle
     implementation(libs.androidx.lifecycle.process)
@@ -216,15 +201,16 @@ dependencies {
     implementation(libs.androidx.paging.compose)
 
     // https://developer.android.com/jetpack/androidx/releases/room
-    ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.paging)
 
     implementation(libs.androidx.work.runtime)
     implementation(libs.material.motion.core)
+    implementation(libs.material.kolor)
 
     implementation(libs.bundles.splitties)
 
-    implementation(libs.okio.jvm)
+    // https://square.github.io/okhttp/changelogs/changelog/
+    implementation(platform(libs.okhttp.bom))
 
     implementation(libs.logcat)
 
@@ -237,8 +223,7 @@ dependencies {
     implementation(libs.reorderable)
 
     implementation(platform(libs.arrow.stack))
-    implementation(libs.arrow.fx.coroutines)
-    implementation(libs.arrow.resilience)
+    implementation(libs.bundles.arrow)
 
     // https://coil-kt.github.io/coil/changelog/
     implementation(platform(libs.coil.bom))
@@ -246,17 +231,14 @@ dependencies {
 
     implementation(libs.telephoto.zoomable)
 
-    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
 
     implementation(libs.bundles.kotlinx.serialization)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
-    implementation(libs.jsoup)
 
     coreLibraryDesugaring(libs.desugar)
-
-    implementation(libs.cronet.embedded)
 
     implementation(libs.androidx.profileinstaller)
     "baselineProfile"(project(":benchmark"))
@@ -266,54 +248,26 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(21)
     compilerOptions {
-        freeCompilerArgs = listOf(
-            // https://kotlinlang.org/docs/compiler-reference.html#progressive
-            "-progressive",
-            "-Xjvm-default=all",
-            "-Xcontext-receivers",
-            "-Xwhen-guards",
-            "-Xsuppress-warning=CONTEXT_RECEIVERS_DEPRECATED",
-
-            "-opt-in=coil3.annotation.ExperimentalCoilApi",
-            "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi",
-            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
-            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
-            "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
-            "-opt-in=androidx.compose.animation.ExperimentalSharedTransitionApi",
-            "-opt-in=androidx.paging.ExperimentalPagingApi",
-            "-opt-in=kotlin.contracts.ExperimentalContracts",
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-            "-opt-in=kotlinx.coroutines.FlowPreview",
-            "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
-            "-opt-in=splitties.experimental.ExperimentalSplittiesApi",
-            "-opt-in=splitties.preferences.DataStorePreferencesPreview",
+        optIn.addAll(
+            "coil3.annotation.ExperimentalCoilApi",
+            "androidx.paging.ExperimentalPagingApi",
+            "me.saket.telephoto.ExperimentalTelephotoApi",
         )
     }
 }
 
 ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
     arg("compose-destinations.codeGenPackageName", "com.hippo.ehviewer.ui")
 }
 
 aboutLibraries {
-    duplicationMode = MERGE
-    duplicationRule = GROUP
-}
-
-val ktlintVersion = libs.ktlint.get().version
-
-spotless {
-    kotlin {
-        // https://github.com/diffplug/spotless/issues/111
-        target("src/**/*.kt")
-        ktlint(ktlintVersion)
+    collect {
+        includePlatform = false
     }
-    kotlinGradle {
-        ktlint(ktlintVersion)
+    library {
+        exclusionPatterns.add(Pattern.compile("org\\.jetbrains\\.(?:compose|androidx)\\..*"))
+        duplicationMode = DuplicateMode.MERGE
+        duplicationRule = DuplicateRule.GROUP
     }
 }

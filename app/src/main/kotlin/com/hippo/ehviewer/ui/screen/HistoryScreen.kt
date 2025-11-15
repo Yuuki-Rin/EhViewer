@@ -3,7 +3,6 @@ package com.hippo.ehviewer.ui.screen
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,8 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.fork.SwipeToDismissBox
 import androidx.compose.material3.fork.rememberSwipeToDismissBoxState
@@ -42,32 +41,35 @@ import androidx.paging.cachedIn
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
+import androidx.paging.map
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.ui.component.FastScrollLazyColumn
+import com.ehviewer.core.ui.icons.EhIcons
+import com.ehviewer.core.ui.icons.big.History
+import com.ehviewer.core.ui.util.Await
+import com.ehviewer.core.ui.util.rememberInVM
+import com.ehviewer.core.ui.util.thenIf
+import com.ehviewer.core.util.launch
 import com.hippo.ehviewer.EhDB
-import com.hippo.ehviewer.R
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.collectAsState
-import com.hippo.ehviewer.icons.EhIcons
-import com.hippo.ehviewer.icons.big.History
 import com.hippo.ehviewer.ui.DrawerHandle
-import com.hippo.ehviewer.ui.composing
+import com.hippo.ehviewer.ui.Screen
 import com.hippo.ehviewer.ui.doGalleryInfoAction
 import com.hippo.ehviewer.ui.main.GalleryInfoListItem
-import com.hippo.ehviewer.ui.main.plus
-import com.hippo.ehviewer.ui.tools.Await
-import com.hippo.ehviewer.ui.tools.FastScrollLazyColumn
-import com.hippo.ehviewer.ui.tools.rememberInVM
-import com.hippo.ehviewer.ui.tools.thenIf
+import com.hippo.ehviewer.ui.tools.awaitConfirmationOrCancel
 import com.hippo.ehviewer.util.FavouriteStatusRouter
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import moe.tarsin.navigate
 
 @Destination<RootGraph>
 @Composable
-fun AnimatedVisibilityScope.HistoryScreen(navigator: DestinationsNavigator) = composing(navigator) {
+fun AnimatedVisibilityScope.HistoryScreen(navigator: DestinationsNavigator) = Screen(navigator) {
     val title = stringResource(id = R.string.history)
     val hint = stringResource(R.string.search_bar_hint, title)
     val animateItems by Settings.animateItems.collectAsState()
@@ -86,7 +88,12 @@ fun AnimatedVisibilityScope.HistoryScreen(navigator: DestinationsNavigator) = co
             } else {
                 EhDB.historyLazyList
             }
-        }.flow.cachedIn(viewModelScope)
+        }.flow.map { data ->
+            val favCat = Settings.favCat
+            data.map {
+                it.apply { favoriteName = favCat.getOrNull(favoriteSlot) }
+            }
+        }.cachedIn(viewModelScope)
     }.collectAsLazyPagingItems()
     FavouriteStatusRouter.Observe(historyData)
     SearchBarScreen(
@@ -100,15 +107,18 @@ fun AnimatedVisibilityScope.HistoryScreen(navigator: DestinationsNavigator) = co
         searchFieldHint = hint,
         searchBarOffsetY = { searchBarOffsetY },
         trailingIcon = {
-            IconButton(onClick = {
-                launch {
-                    awaitConfirmationOrCancel(
-                        confirmText = R.string.clear_all,
-                        text = { Text(text = stringResource(id = R.string.clear_all_history)) },
-                    )
-                    EhDB.clearHistoryInfo()
-                }
-            }) {
+            IconButton(
+                onClick = {
+                    launch {
+                        awaitConfirmationOrCancel(
+                            confirmText = R.string.clear_all,
+                            text = { Text(text = stringResource(id = R.string.clear_all_history)) },
+                        )
+                        EhDB.clearHistoryInfo()
+                    }
+                },
+                shapes = IconButtonDefaults.shapes(),
+            ) {
                 Icon(imageVector = Icons.Default.ClearAll, contentDescription = null)
             }
         },
@@ -123,13 +133,13 @@ fun AnimatedVisibilityScope.HistoryScreen(navigator: DestinationsNavigator) = co
                 }
             }
         }
-        val marginH = dimensionResource(id = R.dimen.gallery_list_margin_h)
+        val marginH = dimensionResource(id = com.hippo.ehviewer.R.dimen.gallery_list_margin_h)
         val cardHeight by collectListThumbSizeAsState()
         val showPages by Settings.showGalleryPages.collectAsState()
         FastScrollLazyColumn(
             modifier = Modifier.nestedScroll(searchBarConnection).fillMaxSize(),
-            contentPadding = paddingValues + PaddingValues(horizontal = marginH),
-            verticalArrangement = Arrangement.spacedBy(dimensionResource(R.dimen.gallery_list_interval)),
+            contentPadding = paddingValues,
+            verticalArrangement = Arrangement.spacedBy(dimensionResource(com.hippo.ehviewer.R.dimen.gallery_list_interval)),
         ) {
             items(
                 count = historyData.itemCount,
@@ -138,26 +148,20 @@ fun AnimatedVisibilityScope.HistoryScreen(navigator: DestinationsNavigator) = co
             ) { index ->
                 val info = historyData[index]
                 if (info != null) {
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart) {
-                                launch { EhDB.deleteHistoryInfo(info) }
-                            }
-                            true
-                        },
-                    )
+                    val dismissState = rememberSwipeToDismissBoxState()
                     SwipeToDismissBox(
                         state = dismissState,
                         backgroundContent = {},
                         modifier = Modifier.thenIf(animateItems) { animateItem() },
                         enableDismissFromStartToEnd = false,
+                        onDismiss = { EhDB.deleteHistoryInfo(info) },
                     ) {
                         GalleryInfoListItem(
                             onClick = { navigate(info.asDst()) },
                             onLongClick = { launch { doGalleryInfoAction(info) } },
                             info = info,
                             showPages = showPages,
-                            modifier = Modifier.height(cardHeight),
+                            modifier = Modifier.height(cardHeight).padding(horizontal = marginH),
                         )
                     }
                 } else {

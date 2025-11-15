@@ -1,5 +1,6 @@
 package com.hippo.ehviewer.ui.settings
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,23 +13,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,7 +45,6 @@ import androidx.compose.runtime.currentRecomposeScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,52 +53,53 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.hippo.ehviewer.R
+import com.ehviewer.core.database.model.Filter
+import com.ehviewer.core.database.model.FilterMode
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.ui.util.Await
+import com.ehviewer.core.ui.util.thenIf
+import com.ehviewer.core.util.async
+import com.ehviewer.core.util.launch
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.client.EhFilter
 import com.hippo.ehviewer.client.EhFilter.forget
 import com.hippo.ehviewer.client.EhFilter.remember
 import com.hippo.ehviewer.client.EhFilter.trigger
 import com.hippo.ehviewer.collectAsState
-import com.hippo.ehviewer.dao.Filter
-import com.hippo.ehviewer.dao.FilterMode
-import com.hippo.ehviewer.ui.tools.Await
-import com.hippo.ehviewer.ui.tools.LocalDialogState
-import com.hippo.ehviewer.ui.tools.thenIf
+import com.hippo.ehviewer.ui.Screen
+import com.hippo.ehviewer.ui.main.NavigationIcon
+import com.hippo.ehviewer.ui.tools.awaitConfirmationOrCancel
+import com.hippo.ehviewer.ui.tools.dialog
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlin.coroutines.resume
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
 import moe.tarsin.coroutines.groupByToObserved
 
 @Destination<RootGraph>
 @Composable
-fun FilterScreen(navigator: DestinationsNavigator) {
-    val scope = rememberCoroutineScope()
+fun AnimatedVisibilityScope.FilterScreen(navigator: DestinationsNavigator) = Screen(navigator) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val allFilterMap = remember { scope.async { EhFilter.filters.await().groupByToObserved { it.mode } } }
-    val dialogState = LocalDialogState.current
+    val allFilterMap = remember { async { EhFilter.filters.await().groupByToObserved { it.mode } } }
     val textIsEmpty = stringResource(R.string.text_is_empty)
     val labelExist = stringResource(R.string.label_text_exist)
     val animateItems by Settings.animateItems.collectAsState()
 
     fun addFilter() {
-        scope.launch {
-            dialogState.dialog { cont ->
-                val types = stringArrayResource(id = R.array.filter_entries)
-                var type by remember { mutableStateOf(types[0]) }
-                var value by remember { mutableStateOf("") }
+        launch {
+            dialog { cont ->
+                val types = stringArrayResource(id = com.hippo.ehviewer.R.array.filter_entries)
+                val type = rememberTextFieldState(types[0])
+                val state = rememberTextFieldState()
                 var error by remember { mutableStateOf<String?>(null) }
                 fun invalidateAndSave() {
-                    if (value.isBlank()) {
+                    if (state.text.isBlank()) {
                         error = textIsEmpty
                         return
                     }
                     error = null
-                    val mode = FilterMode.entries[types.indexOf(type)]
-                    val filter = Filter(mode, value)
+                    val mode = FilterMode.entries[types.indexOf(type.text)]
+                    val filter = Filter(mode, state.text.toString())
                     filter.remember {
                         if (it) {
                             cont.resume(Unit)
@@ -107,12 +112,12 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                 AlertDialog(
                     onDismissRequest = { cont.cancel() },
                     confirmButton = {
-                        TextButton(onClick = ::invalidateAndSave) {
+                        TextButton(onClick = ::invalidateAndSave, shapes = ButtonDefaults.shapes()) {
                             Text(text = stringResource(id = R.string.add))
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { cont.cancel() }) {
+                        TextButton(onClick = { cont.cancel() }, shapes = ButtonDefaults.shapes()) {
                             Text(text = stringResource(id = android.R.string.cancel))
                         }
                     },
@@ -127,10 +132,9 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                                 onExpandedChange = { expanded = !expanded },
                             ) {
                                 OutlinedTextField(
-                                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                                     readOnly = true,
-                                    value = type,
-                                    onValueChange = {},
+                                    state = type,
                                     label = {
                                         Text(text = stringResource(id = R.string.filter_label))
                                     },
@@ -146,7 +150,7 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                                             text = { Text(text = it) },
                                             onClick = {
                                                 expanded = false
-                                                type = it
+                                                type.setTextAndPlaceCursorAtEnd(it)
                                             },
                                             contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
                                         )
@@ -156,8 +160,7 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                             Spacer(modifier = Modifier.size(16.dp))
                             val isError = error != null
                             OutlinedTextField(
-                                value = value,
-                                onValueChange = { value = it },
+                                state = state,
                                 label = { Text(text = stringResource(id = R.string.filter_text)) },
                                 supportingText = { error?.let { Text(text = it) } },
                                 trailingIcon = {
@@ -169,7 +172,7 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                                     }
                                 },
                                 isError = isError,
-                                maxLines = 1,
+                                lineLimits = TextFieldLineLimits.SingleLine,
                                 keyboardOptions = KeyboardOptions(
                                     imeAction = ImeAction.Done,
                                 ),
@@ -185,22 +188,21 @@ fun FilterScreen(navigator: DestinationsNavigator) {
         topBar = {
             TopAppBar(
                 title = { Text(text = stringResource(id = R.string.filter)) },
-                navigationIcon = {
-                    IconButton(onClick = { navigator.popBackStack() }) {
-                        Icon(imageVector = Icons.AutoMirrored.Default.ArrowBack, contentDescription = null)
-                    }
-                },
+                navigationIcon = { NavigationIcon() },
                 actions = {
-                    IconButton(onClick = {
-                        scope.launch {
-                            dialogState.awaitConfirmationOrCancel(
-                                title = R.string.filter,
-                                showCancelButton = false,
-                            ) {
-                                Text(text = stringResource(id = R.string.filter_tip))
+                    IconButton(
+                        onClick = {
+                            launch {
+                                awaitConfirmationOrCancel(
+                                    title = R.string.filter,
+                                    showCancelButton = false,
+                                ) {
+                                    Text(text = stringResource(id = R.string.filter_tip))
+                                }
                             }
-                        }
-                    }) {
+                        },
+                        shapes = IconButtonDefaults.shapes(),
+                    ) {
                         Icon(imageVector = Icons.AutoMirrored.Default.Help, contentDescription = null)
                     }
                 },
@@ -250,8 +252,8 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                                 Text(text = filter.text, modifier = Modifier.weight(1F))
                                 IconButton(
                                     onClick = {
-                                        scope.launch {
-                                            dialogState.awaitConfirmationOrCancel(confirmText = R.string.delete) {
+                                        launch {
+                                            awaitConfirmationOrCancel(confirmText = R.string.delete) {
                                                 Text(text = stringResource(id = R.string.delete_filter, filter.text))
                                             }
                                             filter.forget {
@@ -259,6 +261,7 @@ fun FilterScreen(navigator: DestinationsNavigator) {
                                             }
                                         }
                                     },
+                                    shapes = IconButtonDefaults.shapes(),
                                 ) {
                                     Icon(imageVector = Icons.Default.Delete, contentDescription = null)
                                 }

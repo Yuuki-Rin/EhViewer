@@ -74,18 +74,6 @@
         <item>1</item>
     </integer-array>
 
-    <string-array name="thumb_resolution_entries" translatable="false">
-        <item>@string/settings_eh_thumb_resolution_auto</item>
-        <item>250x</item>
-        <item>300x</item>
-    </string-array>
-
-    <integer-array name="thumb_resolution_entry_values" translatable="false">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-    </integer-array>
-
     <string-array name="search_min_rating" translatable="false">
         <item>@string/any</item>
         <item>@string/star_2</item>
@@ -177,11 +165,11 @@
         <item>@string/filter_comment</item>
     </string-array>
 
-    <string-array name="tag_translation_metadata" tools:ignore="InconsistentArrays">
+    <string-array name="tag_translation_metadata">
         <item>tag-translations-zh-rCN.json.sha1</item>
-        <item>https://raw.githubusercontent.com/Ehviewer-Overhauled/EhTagTranslation/tag-translations/tag-translations/tag-translations-zh-rCN.json.sha1</item>
+        <item>https://raw.githubusercontent.com/EhTagTranslation/DatabaseReleases/refs/heads/master/sha</item>
         <item>tag-translations-zh-rCN.json</item>
-        <item>https://raw.githubusercontent.com/Ehviewer-Overhauled/EhTagTranslation/tag-translations/tag-translations/tag-translations-zh-rCN.json</item>
+        <item>https://raw.githubusercontent.com/EhTagTranslation/DatabaseReleases/refs/heads/master/db.text.json</item>
     </string-array>
 
     <string-array name="night_mode_entries" translatable="false">
@@ -232,14 +220,14 @@
         <item>@string/automatic_background</item>
     </string-array>
 
-    <string-array name="reader_themes_values">
+    <integer-array name="reader_themes_values">
         <item>1</item>
         <item>2</item>
         <item>0</item>
         <item>3</item>
-    </string-array>
+    </integer-array>
 
-    <string-array name="color_filter_modes">
+    <string-array name="color_filter_modes" tools:ignore="InconsistentArrays">
         <item>@string/label_default</item>
         <item>@string/filter_mode_multiply</item>
         <item>@string/filter_mode_screen</item>
@@ -305,14 +293,14 @@
         <item>@string/webtoon_side_padding_25</item>
     </string-array>
 
-    <string-array name="webtoon_side_padding_values">
+    <integer-array name="webtoon_side_padding_values">
         <item>0</item>
         <item>5</item>
         <item>10</item>
         <item>15</item>
         <item>20</item>
         <item>25</item>
-    </string-array>
+    </integer-array>
 
     <string-array name="update_frequency">
         <item>@string/update_frequency_never</item>

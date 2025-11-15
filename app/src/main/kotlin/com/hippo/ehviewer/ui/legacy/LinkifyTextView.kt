@@ -15,18 +15,20 @@
  */
 package com.hippo.ehviewer.ui.legacy
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.text.Spanned
-import android.text.style.ClickableSpan
-import android.util.AttributeSet
+import android.text.style.URLSpan
 import android.view.MotionEvent
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.core.text.getSpans
 
-class LinkifyTextView @JvmOverloads constructor(
+@SuppressLint("ViewConstructor")
+class LinkifyTextView(
     context: Context,
-    attrs: AttributeSet? = null,
-    private val onCurrentSpanUpdate: (ClickableSpan?) -> Unit,
-) : AppCompatTextView(context, attrs) {
+    private val onUrlClick: (String) -> Unit,
+) : AppCompatTextView(context) {
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         // Let the parent or grandparent of TextView to handles click aciton.
         // Otherwise click effect like ripple will not work, and if touch area
@@ -34,21 +36,16 @@ class LinkifyTextView @JvmOverloads constructor(
         // onTouchEven must be called with MotionEvent.ACTION_DOWN for each touch
         // action on it, so we analyze touched url here.
         if (event.action == MotionEvent.ACTION_DOWN) {
-            onCurrentSpanUpdate(null)
-            if (text is Spanned) {
-                var x = event.x.toInt()
-                var y = event.y.toInt()
-                x -= totalPaddingLeft
-                y -= totalPaddingTop
-                x += scrollX
-                y += scrollY
-                val layout = layout
-                if (null != layout) {
-                    val line = layout.getLineForVertical(y)
-                    val off = layout.getOffsetForHorizontal(line, x.toFloat())
-                    val spans = (text as Spanned).getSpans(off, off, ClickableSpan::class.java)
+            (text as? Spanned)?.let { text ->
+                layout?.let { layout ->
+                    val x = event.x + scrollX - totalPaddingLeft
+                    val y = event.y + scrollY - totalPaddingTop
+                    val line = layout.getLineForVertical(y.toInt())
+                    if (x > layout.getLineMax(line)) return@let
+                    val off = layout.getOffsetForHorizontal(line, x)
+                    val spans = text.getSpans<URLSpan>(off, off)
                     if (spans.isNotEmpty()) {
-                        onCurrentSpanUpdate(spans[0])
+                        onUrlClick(spans[0].url)
                     }
                 }
             }

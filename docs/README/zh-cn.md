@@ -8,10 +8,14 @@
   <a href="/docs/README/zh-tw.md">
   正體中文
   </a>
+  <span> | </span>
+  <a href="/docs/README/ja.md">
+  日本語
+  </a>
 </p>
 
 <h1 align="center">
-  <img src="https://github.com/Ehviewer-Overhauled/Art/blob/master/launcher_icon-web.svg" width="200" alt="EhViewer">
+  <img src="https://github.com/FooIbar/EhViewer-art/blob/master/launcher_icon-web.svg" width="200" alt="EhViewer">
   <br>EhViewer<br>
 </h1>
 
@@ -59,25 +63,27 @@
 
 # 描述
 
-致力于轻量化与良好性能表现的 EhViewer 分支
+致力于高性能的现代 EhViewer 分支
 
 已针对性适配 Material Design 3 及其动态取色系统
 
 # 下载
 
-| 变种          | 功能                    |
-|-------------|-----------------------|
-| Default     | Android 8.0+, 完全支持    |
-| Marshmallow | Android 6.0-7.1, 有限支持 |
+| 变种          | 最低 Android 版本 | 备注       |
+|-------------|---------------|----------|
+| Default     | 8.0           | 完全支持     |
+| Marshmallow | 6.0*          | 有限支持，无保证 |
+
+*运行 Android 6 的设备需安装 [ISRG Root X1](https://letsencrypt.org/certs/isrgrootx1.pem) 证书
 
 <a href="https://github.com/FooIbar/EhViewer/releases">
-<img alt="Get it on GitHub" src="https://github.com/Ehviewer-Overhauled/Art/blob/master/get-it-on-github.svg" width="200px"/>
+<img alt="Get it on GitHub" src="https://github.com/FooIbar/EhViewer-art/blob/master/get-it-on-github.svg" width="200px"/>
 </a>
 
 # 截图
 
-![screenshot-01](https://github.com/Ehviewer-Overhauled/Art/blob/master/screenshot-01.png)
-![screenshot-02](https://github.com/Ehviewer-Overhauled/Art/blob/master/screenshot-02.png)
+![screenshots-01](https://github.com/FooIbar/EhViewer-art/blob/master/screenshots-01.webp)
+![screenshots-02](https://github.com/FooIbar/EhViewer-art/blob/master/screenshots-02.webp)
 
 # 感谢
 
@@ -91,7 +97,6 @@
 - [Coil](https://coil-kt.github.io/coil/)
 - [Compose Destinations](https://composedestinations.rafaelcosta.xyz/)
 - [libarchive](https://www.libarchive.org/)
-- [jsoup](https://jsoup.org/)
 
 # 许可证
 

@@ -24,28 +24,29 @@ import android.content.Context
 import android.os.Build
 import android.view.textclassifier.TextClassifier
 import androidx.core.os.persistableBundleOf
-import com.hippo.ehviewer.R
+import com.ehviewer.core.i18n.R
 import com.hippo.ehviewer.ui.MainActivity
+import moe.tarsin.tip
 import splitties.systemservices.clipboardManager
 
 fun copyTextToClipboard(text: CharSequence?, isSensitive: Boolean) {
-    clipboardManager.apply {
-        setPrimaryClip(
-            ClipData.newPlainText(null, text).apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && isSensitive) {
-                    description.extras = persistableBundleOf(ClipDescription.EXTRA_IS_SENSITIVE to true)
-                }
-            },
-        )
-    }
+    clipboardManager.setPrimaryClip(
+        ClipData.newPlainText(null, text).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && isSensitive) {
+                description.extras = persistableBundleOf(ClipDescription.EXTRA_IS_SENSITIVE to true)
+            }
+        },
+    )
 }
 
-fun Context.addTextToClipboard(text: CharSequence?, useToast: Boolean = false) {
+context(_: Context)
+fun addTextToClipboard(text: CharSequence?, useToast: Boolean = false) {
     copyTextToClipboard(text, false)
     // Avoid double notify user since system have done that on Tiramisu above
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-        val activity = findActivity<MainActivity>()
-        activity.showTip(R.string.copied_to_clipboard, useToast)
+        with(findActivity<MainActivity>()) {
+            tip(R.string.copied_to_clipboard, useToast)
+        }
     }
 }
 

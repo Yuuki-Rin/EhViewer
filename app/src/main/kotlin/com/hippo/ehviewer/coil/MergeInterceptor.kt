@@ -1,84 +1,67 @@
 package com.hippo.ehviewer.coil
 
+import arrow.core.merge
+import arrow.fx.coroutines.raceN
+import coil3.decode.DataSource
+import coil3.imageLoader
 import coil3.intercept.Interceptor
+import coil3.memory.MemoryCache
 import coil3.request.ImageResult
-import com.hippo.ehviewer.Settings
-import com.hippo.ehviewer.client.isNormalPreviewKey
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import coil3.request.SuccessResult
 import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import moe.tarsin.coroutines.Counter
+import moe.tarsin.coroutines.Tracker
+import moe.tarsin.coroutines.counter
+import moe.tarsin.coroutines.runSuspendCatching
+import moe.tarsin.coroutines.use
+
+typealias F = suspend () -> Unit
+
+suspend inline fun <T> CancellableContinuation<T>.evalAndResume(f: suspend () -> T) = runSuspendCatching { f() }.takeIf { isActive }?.let(::resumeWith)
+
+class TightRope : CoroutineScope, Counter by counter() {
+    override val coroutineContext = Dispatchers.IO + Job()
+    val actions = Channel<F>()
+    val flow = actions.receiveAsFlow().map(F::invoke).buffer(0).shareIn(this, SharingStarted.WhileSubscribed(stopTimeoutMillis = 200))
+    suspend inline fun <R> sendAndAwait(crossinline block: suspend () -> R) = raceN(
+        { flow.collect {} },
+        { suspendCancellableCoroutine { cont -> launch { actions.send { cont.evalAndResume(block) } } } },
+    ).merge()
+}
+
+object TightRopeTracker : Tracker<TightRope, String>() {
+    override fun new() = TightRope()
+    override fun free(e: TightRope) = e.cancel()
+}
 
 object MergeInterceptor : Interceptor {
-    private val pendingContinuationMap: HashMap<String, MutableList<CancellableContinuation<Unit>>> = hashMapOf()
-    private val pendingContinuationMapLock = Any()
-    private val notifyScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val EMPTY_LIST = mutableListOf<CancellableContinuation<Unit>>()
-
-    private fun triggerSuccessor(key: String) {
-        notifyScope.launch {
-            synchronized(pendingContinuationMapLock) {
-                // Wake up a pending continuation to continue executing task
-                val successor = pendingContinuationMap[key]?.removeFirstOrNull()?.apply {
-                    resume(Unit) { _, _, _ -> triggerSuccessor(key) }
-                }
-                // If no successor, delete this entry from hashmap
-                successor ?: pendingContinuationMap.remove(key)
-            }
-        }
-    }
-
-    private fun triggerFailure(key: String, e: Throwable) {
-        notifyScope.launch {
-            synchronized(pendingContinuationMapLock) {
-                pendingContinuationMap.remove(key)?.forEach { it.resumeWithException(e) }
-            }
-        }
-    }
-
     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
         val req = chain.request
-        val key = req.memoryCacheKey?.takeIf { it.isNormalPreviewKey || Settings.preloadThumbAggressively } ?: return chain.proceed()
-
-        suspendCancellableCoroutine { continuation ->
-            synchronized(pendingContinuationMapLock) {
-                val existPendingContinuations = pendingContinuationMap[key]
-                if (existPendingContinuations == null) {
-                    pendingContinuationMap[key] = EMPTY_LIST
-                    continuation.resume(Unit) { _, _, _ ->
-                        triggerSuccessor(key)
-                    }
-                } else {
-                    if (existPendingContinuations === EMPTY_LIST) pendingContinuationMap[key] = mutableListOf()
-                    pendingContinuationMap[key]!!.apply {
-                        add(continuation)
-                        continuation.invokeOnCancellation { remove(continuation) }
-                    }
+        val key = req.memoryCacheKey
+        return if (key != null) {
+            val cacheKey = MemoryCache.Key(key, req.memoryCacheKeyExtras)
+            val cached = req.context.imageLoader.memoryCache!![cacheKey] != null
+            val result = TightRopeTracker.use(key) { sendAndAwait { chain.proceed() } }
+            when (result) {
+                is SuccessResult if !cached && result.dataSource == DataSource.MEMORY_CACHE -> {
+                    result.copy(dataSource = DataSource.MEMORY)
                 }
+                else -> result
             }
-        }
-
-        try {
-            return chain.proceed().apply {
-                // Wake all pending continuations shared with the same memory key since we have written it to memory cache
-                notifyScope.launch {
-                    synchronized(pendingContinuationMapLock) {
-                        pendingContinuationMap.remove(key)?.forEach { it.resume(Unit) }
-                    }
-                }
-            }
-        } catch (e: CancellationException) {
-            triggerSuccessor(key)
-            throw e
-        } catch (e: Throwable) {
-            // Wake all pending continuations since this request is to be failed
-            triggerFailure(key, e)
-            throw e
+        } else {
+            chain.proceed()
         }
     }
 }

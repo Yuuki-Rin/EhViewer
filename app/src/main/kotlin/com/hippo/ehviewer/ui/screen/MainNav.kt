@@ -1,17 +1,17 @@
 package com.hippo.ehviewer.ui.screen
 
 import androidx.annotation.MainThread
-import com.hippo.ehviewer.client.data.BaseGalleryInfo
+import com.ehviewer.core.model.BaseGalleryInfo
 import com.hippo.ehviewer.client.data.ListUrlBuilder
 import com.hippo.ehviewer.client.parser.GalleryDetailUrlParser
 import com.hippo.ehviewer.client.parser.GalleryListUrlParser
 import com.hippo.ehviewer.client.parser.GalleryPageUrlParser
-import com.hippo.ehviewer.ui.NavGraphs
 import com.hippo.ehviewer.ui.destinations.GalleryDetailScreenDestination
 import com.hippo.ehviewer.ui.destinations.GalleryListScreenDestination
 import com.hippo.ehviewer.ui.destinations.ProgressScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.ramcosta.composedestinations.spec.Direction
+import moe.tarsin.navigate
 
 private fun urlToDestination(url: String): Direction? {
     if (url.isEmpty()) return null
@@ -25,15 +25,11 @@ private fun urlToDestination(url: String): Direction? {
 }
 
 @MainThread
-fun DestinationsNavigator.navWithUrl(url: String): Boolean {
+context(_: DestinationsNavigator)
+fun navWithUrl(url: String): Boolean {
     val dest = urlToDestination(url) ?: return false
     navigate(dest)
     return true
-}
-
-@MainThread
-fun DestinationsNavigator.popNavigate(direction: Direction) = navigate(direction) {
-    popUpTo(NavGraphs.root)
 }
 
 fun BaseGalleryInfo.asDst() = GalleryDetailScreenDestination(GalleryInfoArgs(this))

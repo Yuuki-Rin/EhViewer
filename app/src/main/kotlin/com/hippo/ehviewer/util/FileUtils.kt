@@ -15,61 +15,35 @@
  */
 package com.hippo.ehviewer.util
 
+import com.ehviewer.core.files.write
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.copyTo
+import io.ktor.utils.io.InternalAPI
+import io.ktor.utils.io.rethrowCloseCauseIfNeeded
 import java.io.File
-import java.io.RandomAccessFile
-import java.util.Locale
-import kotlin.math.ln
-import kotlin.math.pow
+import okio.Path
 
 object FileUtils {
-    // Even though vfat allows 255 UCS-2 chars, we might eventually write to
-    // ext4 through a FUSE layer, so use that limit.
-    private const val MAX_FILENAME_BYTES = 255
+    // Workaround for filename length limit on some devices
+    // https://github.com/FooIbar/EhViewer/issues/2607
+    private const val MAX_FILENAME_BYTES = 200
 
-    fun ensureDirectory(file: File?) =
-        file?.let { if (it.exists()) it.isDirectory else it.mkdirs() } ?: false
+    fun ensureDirectory(file: File?) = file?.let { if (it.exists()) it.isDirectory else it.mkdirs() } == true
 
     /**
-     * Convert byte to human readable string.<br></br>
-     * http://stackoverflow.com/questions/3758606/
+     * Convert byte to human readable string.
      *
      * @param bytes the bytes to convert
-     * @param si    si units
      * @return the human readable string
      */
-    fun humanReadableByteCount(bytes: Long, si: Boolean): String {
-        val unit = if (si) 1000 else 1024
-        if (bytes < unit) return "$bytes B"
-        val exp = (ln(bytes.toDouble()) / ln(unit.toDouble())).toInt()
-        val pre = (if (si) "kMGTPE" else "KMGTPE")[exp - 1].toString() + if (si) "" else "i"
-        return String.format(
-            Locale.US,
-            "%.1f %sB",
-            bytes / unit.toDouble().pow(exp.toDouble()),
-            pre,
-        )
-    }
-
-    /**
-     * Try to delete file, dir and it's children
-     *
-     * @param file the file to delete
-     * The dir to deleted
-     */
-    fun delete(file: File?): Boolean {
-        file ?: return false
-        return deleteContent(file) and file.delete()
-    }
-
-    fun deleteContent(file: File?): Boolean {
-        file ?: return false
-        var success = true
-        file.listFiles()?.forEach {
-            success = success and delete(it)
+    fun humanReadableByteCount(bytes: Long): String {
+        val units = "KMGTPE"
+        var exp = -1
+        var result = bytes.toDouble()
+        while (result >= 1024.0 && exp < units.length - 1) {
+            exp++
+            result /= 1024.0
         }
-        return success
+        return if (exp == -1) "$bytes B" else "%.1f %siB".format(result, units[exp])
     }
 
     fun cleanupDirectory(dir: File?, maxFiles: Int = 10) {
@@ -81,34 +55,33 @@ object FileUtils {
         }
     }
 
-    private fun isValidFatFilenameChar(c: Char) =
-        when (c.code) {
-            in 0x00..0x1F,
-            '"'.code,
-            '*'.code,
-            '/'.code,
-            ':'.code,
-            '<'.code,
-            '>'.code,
-            '?'.code,
-            '\\'.code,
-            '|'.code,
-            0x7F,
-            -> false
-            else -> true
-        }
+    private fun isValidFatFilenameChar(c: Char) = when (c.code) {
+        in 0x00..0x1F,
+        '"'.code,
+        '*'.code,
+        '/'.code,
+        ':'.code,
+        '<'.code,
+        '>'.code,
+        '?'.code,
+        '\\'.code,
+        '|'.code,
+        0x7F,
+        -> false
+        else -> true
+    }
 
-    // From https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/os/FileUtils.java;l=1142;drc=7b647e4ea0e92f33c19b315eaed364ee067ba0aa
     /**
      * Mutate the given filename to make it valid for a FAT filesystem,
      * replacing any invalid characters with "_".
      *
      * @param name the original filename
      */
+    // From https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/os/FileUtils.java;l=1142;drc=7b647e4ea0e92f33c19b315eaed364ee067ba0aa
     fun sanitizeFilename(name: String): String {
-        if (name.isEmpty() || "." == name || ".." == name) {
-            return "(invalid)"
-        }
+        // Windows does not support filenames ending with a space or a period
+        val name = name.trimEnd(' ', '.')
+        check(name.isNotEmpty()) { "Invalid filename" }
         return buildString(name.length) {
             name.forEach {
                 if (isValidFatFilenameChar(it)) {
@@ -135,8 +108,7 @@ object FileUtils {
      * @param filename the complete filename
      * @return null for can't find extension
      */
-    fun getExtensionFromFilename(filename: String?) =
-        filename?.substringAfterLast('.', "")?.ifEmpty { null }
+    fun getExtensionFromFilename(filename: String?) = filename?.substringAfterLast('.', "")?.ifEmpty { null }
 
     /**
      * Get name from filename
@@ -144,38 +116,16 @@ object FileUtils {
      * @param filename the complete filename
      * @return null for start with . dot
      */
-    fun getNameFromFilename(filename: String?) =
-        filename?.substringBeforeLast('.')?.ifEmpty { null }
-
-    /**
-     * Create a temp file, you need to delete it by you self.
-     *
-     * @param parent    The temp file's parent
-     * @param extension The extension of temp file
-     * @return The temp file or null
-     */
-    fun createTempFile(parent: File?, extension: String?): File? {
-        parent ?: return null
-        val now = System.currentTimeMillis()
-        for (i in 0..99) {
-            var filename = (now + i).toString()
-            extension?.let {
-                filename = "$filename.$it"
-            }
-            val tempFile = File(parent, filename)
-            if (!tempFile.exists()) {
-                return tempFile
-            }
-        }
-
-        // Unbelievable
-        return null
-    }
+    fun getNameFromFilename(filename: String?) = filename?.substringBeforeLast('.')?.ifEmpty { null }
 }
 
-@Suppress("BlockingMethodInNonBlockingContext")
-suspend fun ByteReadChannel.copyTo(file: File) {
-    RandomAccessFile(file, "rw").use {
-        copyTo(it.channel)
+@OptIn(InternalAPI::class)
+suspend fun ByteReadChannel.copyTo(file: Path) {
+    file.write {
+        while (!isClosedForRead) {
+            transferFrom(readBuffer)
+            awaitContent()
+        }
+        rethrowCloseCauseIfNeeded()
     }
 }

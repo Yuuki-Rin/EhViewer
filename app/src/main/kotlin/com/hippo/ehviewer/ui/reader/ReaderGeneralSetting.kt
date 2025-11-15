@@ -5,24 +5,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.integerArrayResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import com.hippo.ehviewer.R
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.util.isAtLeastP
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.asMutableState
-import com.hippo.ehviewer.util.isAtLeastP
 
 @Composable
 fun ReaderGeneralSetting() = Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {
     SpinnerChoice(
         title = stringResource(id = R.string.pref_reader_theme),
-        entries = stringArrayResource(id = R.array.reader_themes),
-        values = stringArrayResource(id = R.array.reader_themes_values),
+        entries = stringArrayResource(id = com.hippo.ehviewer.R.array.reader_themes),
+        values = integerArrayResource(id = com.hippo.ehviewer.R.array.reader_themes_values).toList(),
         field = Settings.readerTheme.asMutableState(),
     )
     SwitchChoice(
@@ -70,17 +70,9 @@ fun ReaderGeneralSetting() = Column(modifier = Modifier.verticalScroll(rememberS
         field = volume,
     )
     AnimatedVisibility(visible = volume.value) {
-        Column {
-            SliderChoice(
-                startSlot = { Text(text = stringResource(id = R.string.settings_read_volume_page_fast)) },
-                endSlot = { Text(text = stringResource(id = R.string.settings_read_volume_page_slow)) },
-                range = 0..9,
-                field = Settings.readWithVolumeKeysInterval.asMutableState(),
-            )
-            SwitchChoice(
-                title = stringResource(id = R.string.settings_read_reverse_volume),
-                field = Settings.readWithVolumeKeysInverted.asMutableState(),
-            )
-        }
+        SwitchChoice(
+            title = stringResource(id = R.string.settings_read_reverse_volume),
+            field = Settings.readWithVolumeKeysInverted.asMutableState(),
+        )
     }
 }

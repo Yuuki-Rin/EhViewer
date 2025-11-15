@@ -17,39 +17,31 @@ package com.hippo.ehviewer.ui
 
 import android.content.ActivityNotFoundException
 import android.content.Context
-import android.net.Uri
 import android.widget.Toast
 import androidx.browser.customtabs.CustomTabsIntent
-import com.hippo.ehviewer.R
-import com.hippo.ehviewer.client.data.GalleryDetail
+import androidx.core.net.toUri
+import com.ehviewer.core.i18n.R
+import com.ehviewer.core.model.GalleryDetail
 import com.hippo.ehviewer.client.parser.GalleryPageUrlParser
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 
 private val intent = CustomTabsIntent.Builder().apply { setShowTitle(true) }.build()
 
-fun Context.openBrowser(url: String) {
+context(ctx: Context)
+fun openBrowser(url: String) {
     if (url.isEmpty()) return
     try {
-        intent.launchUrl(this, Uri.parse(url))
-    } catch (e: ActivityNotFoundException) {
-        Toast.makeText(this, R.string.no_browser_installed, Toast.LENGTH_LONG).show()
+        intent.launchUrl(ctx, url.toUri())
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(ctx, R.string.no_browser_installed, Toast.LENGTH_LONG).show()
     }
 }
 
-context(Context, DestinationsNavigator)
-fun Context.jumpToReaderByPage(
-    url: String,
-    detail: GalleryDetail,
-): Boolean {
+context(_: DestinationsNavigator)
+fun jumpToReaderByPage(url: String, detail: GalleryDetail): Boolean {
     GalleryPageUrlParser.parse(url)?.let {
         if (it.gid == detail.gid) {
             navToReader(detail.galleryInfo, it.page)
-            return true
-        }
-    }
-    if (url.startsWith("#c")) {
-        runCatching {
-            navToReader(detail.galleryInfo, url.replace("#c", "").toInt() - 1)
             return true
         }
     }

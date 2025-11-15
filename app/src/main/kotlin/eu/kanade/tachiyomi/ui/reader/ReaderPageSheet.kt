@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -27,7 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.hippo.ehviewer.R
+import com.ehviewer.core.i18n.R
 import moe.tarsin.kt.andThen
 
 @Composable
@@ -50,13 +49,10 @@ fun ReaderPageSheetMeta(
         Spacer(modifier = Modifier.size(32.dp))
         Text(text = stringResource(id = text))
     }
-    Column(
-        modifier = Modifier.fillMaxSize() // Workaround for https://issuetracker.google.com/341594885
-            .verticalScroll(rememberScrollState()).navigationBarsPadding(),
-    ) {
+    Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {
         showAds?.let { Item(icon = Icons.Default.Visibility, text = R.string.show_blocked_image, onClick = it) }
         Item(icon = Icons.Default.Refresh, text = R.string.refresh, onClick = retry)
-        Item(icon = Icons.Default.Refresh, text = R.string.refresh_original, onClick = retryOrigin)
+        Item(icon = Icons.Default.Visibility, text = R.string.view_original, onClick = retryOrigin)
         Item(icon = Icons.Default.Share, text = R.string.action_share, onClick = share)
         Item(icon = Icons.Default.FileCopy, text = R.string.action_copy, onClick = copy)
         Item(icon = Icons.Default.Save, text = R.string.action_save, onClick = save)

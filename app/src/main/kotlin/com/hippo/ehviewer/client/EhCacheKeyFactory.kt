@@ -15,35 +15,38 @@
  */
 package com.hippo.ehviewer.client
 
-import com.hippo.ehviewer.client.data.GalleryInfo
-import com.hippo.ehviewer.client.data.GalleryPreview
-import com.hippo.ehviewer.client.data.NormalGalleryPreview
+import com.ehviewer.core.model.GalleryInfo
 
-// Normal Preview: https://*.hath.network/cm/[timed token]/[gid]-[index].jpg
-// ExHentai Large Preview: https://s.exhentai.org/t/***
-// E-Hentai Large Preview: https://ehgt.org/***
+// Normal Preview (v2): https://*.hath.network/c(m|1|2)/[timed token]/[gid]-[index].(jpg|webp)
+// ExHentai Large Preview (v1 Cover): https://s.exhentai.org/t/***
+// E-Hentai Large Preview (v1 Cover): https://ehgt.org/***
+// ExHentai v2 Cover: https://s.exhentai.org/**.webp
+// E-Hentai v2 Cover: https://ehgt.org/**.webp
 
-private const val URL_PREFIX_THUMB_E = "https://ehgt.org/"
-private const val URL_PREFIX_THUMB_EX = "https://s.exhentai.org/t/"
-private const val NORMAL_PREVIEW_PREFIX = "$"
-private val NormalPreviewKeyRegex = Regex("/(\\d+-\\d+)\\.jpg$")
+const val URL_PREFIX_THUMB_E = "https://ehgt.org/"
+const val URL_PREFIX_THUMB_EX = "https://s.exhentai.org/"
+private const val URL_PREFIX_V1_THUMB_EX = URL_PREFIX_THUMB_EX + "t/"
+private val V2PreviewKeyRegex = Regex("/c([m12]/)[^/]+/(\\d+-\\d+)")
 
 fun getImageKey(gid: Long, index: Int): String = "image:$gid:$index"
 
-fun getThumbKey(url: String): String = url.removePrefix(thumbPrefix)
+fun getThumbKey(url: String): String = url.removePrefix(URL_PREFIX_THUMB_E).removePrefix(URL_PREFIX_V1_THUMB_EX).removePrefix(URL_PREFIX_THUMB_EX)
 
-val String.isNormalPreviewKey
-    get() = startsWith(NORMAL_PREVIEW_PREFIX)
-
-val GalleryPreview.imageKey
-    get() = if (this is NormalGalleryPreview) {
-        NormalPreviewKeyRegex.find(url)?.run { NORMAL_PREVIEW_PREFIX + groupValues[1] }
-    } else {
-        getThumbKey(url)
-    }
+fun getV2PreviewKey(url: String) = "$".plus(
+    V2PreviewKeyRegex.find(url)?.let {
+        it.groupValues[1] + it.groupValues[2]
+    } ?: url,
+)
 
 val GalleryInfo.thumbUrl
-    get() = thumbPrefix + EhUtils.handleThumbUrlResolution(thumbKey!!)
+    get() = keyToUrl(thumbKey!!)
 
-private val thumbPrefix
-    get() = if (EhUtils.isExHentai) URL_PREFIX_THUMB_EX else URL_PREFIX_THUMB_E
+fun keyToUrl(key: String) = if (key.startsWith("https:")) {
+    key
+} else {
+    if (key.endsWith("webp")) {
+        if (EhUtils.isExHentai) URL_PREFIX_THUMB_EX else URL_PREFIX_THUMB_E
+    } else {
+        if (EhUtils.isExHentai) URL_PREFIX_V1_THUMB_EX else URL_PREFIX_THUMB_E
+    } + key
+}

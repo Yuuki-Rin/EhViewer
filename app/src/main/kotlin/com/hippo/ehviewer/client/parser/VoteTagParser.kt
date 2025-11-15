@@ -17,9 +17,18 @@
  */
 package com.hippo.ehviewer.client.parser
 
-import com.hippo.ehviewer.client.parseAs
+import arrow.core.Either.Companion.catch
+import arrow.core.getOrElse
+import com.ehviewer.core.model.GalleryTagGroup
+import com.hippo.ehviewer.client.exception.ParseException
+import java.nio.ByteBuffer
 
 object VoteTagParser {
-    // {"error":"The tag \"neko\" is not allowed. Use character:neko or artist:neko"}
-    fun parse(body: String): String? = runCatching { body.parseAs<Error>().error }.getOrNull()
+    fun parse(body: ByteBuffer) = catch {
+        unmarshalParsingAs<List<GalleryTagGroup>>(body, ::nativeParse)
+    }.getOrElse {
+        throw ParseException("Failed to parse vote tag result", it)
+    }
+
+    private external fun nativeParse(body: ByteBuffer, size: Int = body.limit()): Int
 }

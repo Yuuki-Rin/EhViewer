@@ -8,7 +8,6 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,7 +31,7 @@ import arrow.core.partially1
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.collectAsState
 import com.hippo.ehviewer.gallery.Page
-import com.hippo.ehviewer.gallery.PageLoader2
+import com.hippo.ehviewer.gallery.PageLoader
 import com.hippo.ehviewer.gallery.PageStatus
 import com.hippo.ehviewer.gallery.statusObserved
 import eu.kanade.tachiyomi.ui.reader.viewer.NavigationRegions
@@ -43,10 +42,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import me.saket.telephoto.zoomable.OverzoomEffect
+import me.saket.telephoto.zoomable.Viewport
+import me.saket.telephoto.zoomable.ZoomLimit
 import me.saket.telephoto.zoomable.ZoomSpec
 import me.saket.telephoto.zoomable.ZoomableContentLocation
 import me.saket.telephoto.zoomable.ZoomableState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import me.saket.telephoto.zoomable.spatial.CoordinateSpace
 import me.saket.telephoto.zoomable.zoomable
 
 @Composable
@@ -54,7 +57,7 @@ fun PagerViewer(
     pagerState: PagerState,
     isRtl: Boolean,
     isVertical: Boolean,
-    pageLoader: PageLoader2,
+    pageLoader: PageLoader,
     navigator: () -> NavigationRegions,
     onSelectPage: (Page) -> Unit,
     onMenuRegionClick: () -> Unit,
@@ -75,6 +78,7 @@ fun PagerViewer(
         VerticalPager(
             state = pagerState,
             modifier = modifier,
+            beyondViewportPageCount = 1,
             key = { it },
         ) { index ->
             val page = items[index]
@@ -98,6 +102,7 @@ fun PagerViewer(
         HorizontalPager(
             state = pagerState,
             modifier = modifier,
+            beyondViewportPageCount = 1,
             reverseLayout = isRtl xor isRtlLayout,
             key = { it },
         ) { index ->
@@ -123,7 +128,7 @@ fun PagerViewer(
 @Composable
 private fun PageContainer(
     page: Page,
-    pageLoader: PageLoader2,
+    pageLoader: PageLoader,
     isRtl: Boolean,
     scaleType: Int,
     landscapeZoom: Boolean,
@@ -170,9 +175,11 @@ private fun PageContainer(
                 val zoomFraction = snapshotFlow { zoomableState.zoomFraction }.first { it != null }
                 if (zoomFraction == 0f) {
                     delay(500)
-                    val contentSize = zoomableState.transformedContentBounds.size
+                    val contentSize = with(zoomableState.coordinateSystem) {
+                        unscaledContentBounds(false).sizeIn(CoordinateSpace.Viewport)
+                    }
                     val scale = ContentScale.FillHeight.computeScaleFactor(contentSize, layoutSize)
-                    val targetScale = scale.scaleX.coerceAtMost(zoomableState.zoomSpec.maxZoomFactor)
+                    val targetScale = scale.scaleX.coerceAtMost(zoomableState.zoomSpec.maximum.factor)
                     val offset = alignment.align(0, layoutSize.width.toInt(), LayoutDirection.Ltr)
                     zoomableState.zoomTo(targetScale, Offset(offset.toFloat(), 0f))
                 }
@@ -238,28 +245,30 @@ private fun PageContainer(
     }
 }
 
-private suspend fun ZoomableState?.panLeft(distance: Float, bounds: Rect): Boolean =
-    if (canPan { it.right - bounds.right }) {
-        panBy(Offset(-distance, 0f))
-        true
-    } else {
-        false
-    }
+private suspend fun ZoomableState?.panLeft(distance: Float, bounds: Rect): Boolean = if (canPan { it.right - bounds.right }) {
+    panBy(Offset(-distance, 0f))
+    true
+} else {
+    false
+}
 
-private suspend fun ZoomableState?.panRight(distance: Float, bounds: Rect): Boolean =
-    if (canPan { bounds.left - it.left }) {
-        panBy(Offset(distance, 0f))
-        true
-    } else {
-        false
-    }
+private suspend fun ZoomableState?.panRight(distance: Float, bounds: Rect): Boolean = if (canPan { bounds.left - it.left }) {
+    panBy(Offset(distance, 0f))
+    true
+} else {
+    false
+}
 
 private inline fun ZoomableState?.canPan(getRemaining: (Rect) -> Float): Boolean {
     // TODO: Remove when K2 mode in IDE is stable
     contract {
         returns(true) implies (this@canPan != null)
     }
-    return this != null && Settings.navigateToPan.value && getRemaining(transformedContentBounds) > 1f
+    return this != null && Settings.navigateToPan.value &&
+        getRemaining(with(coordinateSystem) { contentBounds(false).rectIn(CoordinateSpace.Viewport) }) > 1f
 }
 
-private val PagerZoomSpec = ZoomSpec(maxZoomFactor = 5f)
+private val PagerZoomSpec = ZoomSpec(
+    maximum = ZoomLimit(factor = 5f),
+    minimum = ZoomLimit(factor = 1f, overzoomEffect = OverzoomEffect.Disabled),
+)

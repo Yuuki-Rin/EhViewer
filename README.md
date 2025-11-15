@@ -8,10 +8,14 @@
   <a href="/docs/README/zh-tw.md">
   正體中文
   </a>
+  <span> | </span>
+  <a href="/docs/README/ja.md">
+  日本語
+  </a>
 </p>
 
 <h1 align="center">
-  <img src="https://github.com/Ehviewer-Overhauled/Art/blob/master/launcher_icon-web.svg" width="200" alt="EhViewer">
+  <img src="https://github.com/FooIbar/EhViewer-art/blob/master/launcher_icon-web.svg" width="200" alt="EhViewer">
   <br>EhViewer<br>
 </h1>
 
@@ -59,26 +63,28 @@
 
 # Description
 
-EhViewer fork dedicated to lightweight and high-performance
+A modern EhViewer fork dedicated to high-performance
 
 with [Material Design 3](https://m3.material.io/)
 and [Dynamic Color](https://m3.material.io/styles/color/dynamic-color/overview) Support
 
 # Download
 
-| Flavor      | Feature                          |
-|-------------|----------------------------------|
-| Default     | Android 8.0+, full support       |
-| Marshmallow | Android 6.0-7.1, limited support |
+| Flavor      | Minimum Android Version | Notes                          |
+|-------------|-------------------------|--------------------------------|
+| Default     | 8.0                     | Full support                   |
+| Marshmallow | 6.0*                    | Limited support, no guarantees |
+
+*Devices running Android 6 need to have the [ISRG Root X1](https://letsencrypt.org/certs/isrgrootx1.pem) certificate installed
 
 <a href="https://github.com/FooIbar/EhViewer/releases">
-<img alt="Get it on GitHub" src="https://github.com/Ehviewer-Overhauled/Art/blob/master/get-it-on-github.svg" width="200px"/>
+<img alt="Get it on GitHub" src="https://github.com/FooIbar/EhViewer-art/blob/master/get-it-on-github.svg" width="200px"/>
 </a>
 
 # Screenshot
 
-![screenshot-01](https://github.com/Ehviewer-Overhauled/Art/blob/master/screenshot-01.png)
-![screenshot-02](https://github.com/Ehviewer-Overhauled/Art/blob/master/screenshot-02.png)
+![screenshots-01](https://github.com/FooIbar/EhViewer-art/blob/master/screenshots-01.webp)
+![screenshots-02](https://github.com/FooIbar/EhViewer-art/blob/master/screenshots-02.webp)
 
 # Thanks
 
@@ -92,7 +98,6 @@ Here is the libraries
 - [Coil](https://coil-kt.github.io/coil/)
 - [Compose Destinations](https://composedestinations.rafaelcosta.xyz/)
 - [libarchive](https://www.libarchive.org/)
-- [jsoup](https://jsoup.org/)
 
 # License
 

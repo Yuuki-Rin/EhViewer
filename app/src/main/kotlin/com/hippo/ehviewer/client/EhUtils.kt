@@ -15,17 +15,31 @@
  */
 package com.hippo.ehviewer.client
 
+import android.app.DownloadManager
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.os.Environment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.core.graphics.ColorUtils
+import androidx.core.net.toUri
 import arrow.core.memoize
+import com.ehviewer.core.model.GalleryDetail
+import com.ehviewer.core.model.GalleryInfo
+import com.ehviewer.core.util.withUIContext
 import com.hippo.ehviewer.Settings
-import com.hippo.ehviewer.client.data.GalleryInfo
-import kotlin.math.abs
+import com.hippo.ehviewer.client.parser.Archive
+import com.hippo.ehviewer.spider.SpiderDen
+import com.hippo.ehviewer.util.AppConfig
+import com.hippo.ehviewer.util.FileUtils
+import com.hippo.ehviewer.util.addTextToClipboard
+import com.materialkolor.hct.Hct
+import com.materialkolor.ktx.from
+import com.materialkolor.ktx.toColor
+import splitties.systemservices.downloadManager
 
 object EhUtils {
     const val NONE = -1 // Use it for homepage
@@ -84,7 +98,10 @@ object EhUtils {
     private val CATEGORY_STRINGS = CATEGORY_VALUES.entries.map { (k, v) -> v to k }
 
     val isExHentai: Boolean
-        get() = Settings.gallerySite == EhUrl.SITE_EX
+        get() = Settings.gallerySite.value == EhUrl.SITE_EX
+
+    val isMpvAvailable
+        get() = EhCookieStore.getHathPerks()?.contains('q') == true
 
     fun getCategory(type: String?): Int {
         for (entry in CATEGORY_STRINGS) {
@@ -99,64 +116,54 @@ object EhUtils {
 
     fun getCategory(type: Int): String = CATEGORY_VALUES.getOrDefault(type, CATEGORY_VALUES[UNKNOWN])!![0]
 
-    private fun differenceDegrees(a: Float, b: Float): Float = 180.0f - abs(abs(a - b) - 180.0f)
+    fun invCategory(category: Int): Int = category.inv() and ALL_CATEGORY
 
-    private fun sanitizeDegreesDouble(degrees: Float): Float {
-        val deg = degrees % 360.0f
-        return if (deg < 0) deg + 360.0f else deg
-    }
-
-    private fun rotationDirection(from: Float, to: Float): Float {
-        val increasingDifference = sanitizeDegreesDouble(to - from)
-        return if (increasingDifference <= 180.0) 1.0f else -1.0f
-    }
-
-    val harmonizeWithRole = { primaryContainer: Int, src: Int ->
-        val fromHct = FloatArray(3).apply { ColorUtils.colorToM3HCT(src, this) }
-        val toHct = FloatArray(3).apply { ColorUtils.colorToM3HCT(primaryContainer, this) }
-        val differenceDegrees = differenceDegrees(fromHct[0], toHct[0])
-        val rotationDegrees = minOf(differenceDegrees * 0.5f, 15.0f)
-        val outputHue = sanitizeDegreesDouble(fromHct[0] + rotationDegrees * rotationDirection(fromHct[0], toHct[0]))
-        ColorUtils.M3HCTToColor(outputHue, toHct[1], toHct[2])
+    val mergeColor = { primaryContainer: Color, src: Color ->
+        val fromHct = Hct.from(src)
+        val toHct = Hct.from(primaryContainer)
+        Hct.from(fromHct.hue, toHct.chroma, toHct.tone).toColor()
     }.memoize()
 
     @Stable
     @ReadOnlyComposable
     @Composable
     fun getCategoryColor(category: Int): Color {
-        val primary = when (category) {
-            DOUJINSHI -> BG_COLOR_DOUJINSHI
-            MANGA -> BG_COLOR_MANGA
-            ARTIST_CG -> BG_COLOR_ARTIST_CG
-            GAME_CG -> BG_COLOR_GAME_CG
-            WESTERN -> BG_COLOR_WESTERN
-            NON_H -> BG_COLOR_NON_H
-            IMAGE_SET -> BG_COLOR_IMAGE_SET
-            COSPLAY -> BG_COLOR_COSPLAY
-            ASIAN_PORN -> BG_COLOR_ASIAN_PORN
-            MISC -> BG_COLOR_MISC
-            else -> BG_COLOR_UNKNOWN
-        }.toInt()
-        val color = if (Settings.harmonizeCategoryColor) {
-            val primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb()
-            harmonizeWithRole(primaryContainer, primary)
+        val primary = Color(
+            when (category) {
+                DOUJINSHI -> BG_COLOR_DOUJINSHI
+                MANGA -> BG_COLOR_MANGA
+                ARTIST_CG -> BG_COLOR_ARTIST_CG
+                GAME_CG -> BG_COLOR_GAME_CG
+                WESTERN -> BG_COLOR_WESTERN
+                NON_H -> BG_COLOR_NON_H
+                IMAGE_SET -> BG_COLOR_IMAGE_SET
+                COSPLAY -> BG_COLOR_COSPLAY
+                ASIAN_PORN -> BG_COLOR_ASIAN_PORN
+                MISC -> BG_COLOR_MISC
+                else -> BG_COLOR_UNKNOWN
+            }.toInt(),
+        )
+        return if (Settings.harmonizeCategoryColor.value) {
+            val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+            mergeColor(primaryContainer, primary)
         } else {
             primary
         }
-        return Color(color)
     }
 
     val categoryTextColor = Color(0xffe6e0e9)
+
+    val favoriteIconColor = Color(0xffff3040)
 
     fun signOut() {
         EhCookieStore.removeAllCookies()
         Settings.displayName.value = null
         Settings.hasSignedIn.value = false
-        Settings.gallerySite = EhUrl.SITE_E
-        Settings.needSignIn = true
+        Settings.gallerySite.value = EhUrl.SITE_E
+        Settings.needSignIn.value = true
     }
 
-    fun getSuitableTitle(gi: GalleryInfo): String = if (Settings.showJpnTitle) {
+    fun getSuitableTitle(gi: GalleryInfo): String = if (Settings.showJpnTitle.value) {
         if (gi.titleJpn.isNullOrEmpty()) gi.title else gi.titleJpn
     } else {
         if (gi.title.isNullOrEmpty()) gi.titleJpn else gi.title
@@ -172,19 +179,34 @@ object EhUtils {
         return title.substringBeforeLast('|').trim().ifEmpty { null }
     }
 
-    fun handleThumbUrlResolution(url: String): String {
-        val resolution = when (Settings.thumbResolution) {
-            0 -> return url
-            1 -> "250"
-            2 -> "300"
-            else -> return url
-        }
-        val index1 = url.lastIndexOf('_')
-        val index2 = url.lastIndexOf('.')
-        return if (index1 >= 0 && index2 >= 0 && index1 < index2) {
-            url.substring(0, index1 + 1) + resolution + url.substring(index2)
-        } else {
-            url
+    context(ctx: Context)
+    suspend fun downloadArchive(galleryDetail: GalleryDetail, archive: Archive) {
+        val gid = galleryDetail.gid
+        EhEngine.downloadArchive(gid, galleryDetail.token, archive.res, archive.isHath)?.let {
+            val uri = it.toUri()
+            val intent = Intent().apply {
+                action = Intent.ACTION_VIEW
+                setDataAndType(uri, "application/zip")
+            }
+            val name = "$gid-${getSuitableTitle(galleryDetail)}.zip"
+            try {
+                ctx.startActivity(intent)
+                withUIContext { addTextToClipboard(name, true) }
+            } catch (_: ActivityNotFoundException) {
+                val r = DownloadManager.Request(uri)
+                r.setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS,
+                    AppConfig.APP_DIRNAME + "/" + FileUtils.sanitizeFilename(name),
+                )
+                r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                downloadManager.enqueue(r)
+            }
+            if (Settings.archiveMetadata.value) {
+                SpiderDen(galleryDetail).apply {
+                    initDownloadDir()
+                    writeComicInfo()
+                }
+            }
         }
     }
 }
