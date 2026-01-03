@@ -5,16 +5,19 @@ include(FetchContent)
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     string(CONCAT CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -ffast-math -fvisibility=hidden -fvisibility-inlines-hidden -funroll-loops -flto "
-           "-mllvm -polly "
-           "-mllvm -polly-run-dce "
-           "-mllvm -polly-run-inliner "
-           "-mllvm -polly-isl-arg=--no-schedule-serialize-sccs "
-           "-mllvm -polly-ast-use-context "
-           "-mllvm -polly-detect-keep-going "
-           "-mllvm -polly-position=before-vectorizer "
-           "-mllvm -polly-vectorizer=stripmine "
-           "-mllvm -polly-detect-profitability-min-per-loop-insts=40 "
-           "-mllvm -polly-invariant-load-hoisting")
+            "-ffile-prefix-map=${ANDROID_TOOLCHAIN_ROOT}= "
+            "-ffile-prefix-map=${CMAKE_SOURCE_DIR}= "
+            "-ffile-prefix-map=${CMAKE_BINARY_DIR}= "
+            "-mllvm -polly "
+            "-mllvm -polly-run-dce "
+            "-mllvm -polly-run-inliner "
+            "-mllvm -polly-isl-arg=--no-schedule-serialize-sccs "
+            "-mllvm -polly-ast-use-context "
+            "-mllvm -polly-detect-keep-going "
+            "-mllvm -polly-position=before-vectorizer "
+            "-mllvm -polly-vectorizer=stripmine "
+            "-mllvm -polly-detect-profitability-min-per-loop-insts=40 "
+            "-mllvm -polly-invariant-load-hoisting")
 endif (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 option(BUILD_TESTING OFF)
@@ -29,7 +32,7 @@ option(XZ_TOOL_XZDEC OFF)
 FetchContent_Declare(
         liblzma
         GIT_REPOSITORY https://github.com/tukaani-project/xz.git
-        GIT_TAG v5.8.1
+        GIT_TAG v5.8.2
         GIT_SHALLOW 1
 )
 
@@ -38,23 +41,25 @@ include_directories(${liblzma_SOURCE_DIR}/src/liblzma/api)
 
 # Build GNUTLS libnettle
 if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    execute_process(
-            COMMAND wsl wslpath ${CMAKE_CURRENT_LIST_DIR}
-            OUTPUT_VARIABLE CURRENT_DIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    set(NDK_VERSION "${ANDROID_NDK_MAJOR}.${ANDROID_NDK_MINOR}.${ANDROID_NDK_BUILD}")
+    set(TOOLCHAIN "$ANDROID_HOME/ndk/${NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin")
+    set(WSL wsl)
 else ()
-    set(CURRENT_DIR ${CMAKE_CURRENT_LIST_DIR})
+    set(TOOLCHAIN "${ANDROID_TOOLCHAIN_ROOT}/bin")
 endif ()
-set(NDK_VERSION "${ANDROID_NDK_MAJOR}.${ANDROID_NDK_MINOR}.${ANDROID_NDK_BUILD}")
+set(CONFIGURE_COMMAND ./configure --disable-public-key --disable-dependency-tracking
+        "--host=${CMAKE_C_COMPILER_TARGET}"
+        "CFLAGS=${CMAKE_C_FLAGS} -Qunused-arguments"
+        "AR=${TOOLCHAIN}/llvm-ar"
+        "CC=${TOOLCHAIN}/clang --target=${CMAKE_C_COMPILER_TARGET}"
+        "RANLIB=${TOOLCHAIN}/llvm-ranlib"
+)
 ExternalProject_Add(
         nettle
-        GIT_REPOSITORY https://gitlab.com/gnutls/nettle.git
-        GIT_TAG nettle_3.10.2_release_20250626
-        GIT_SHALLOW 1
-        GIT_CONFIG core.autocrlf=input
-        CONFIGURE_COMMAND bash ${CURRENT_DIR}/configure_nettle.sh ${NDK_VERSION} ${CMAKE_C_COMPILER_TARGET}
-        BUILD_COMMAND bash -c "make -j4 libnettle.a CFLAGS='${CMAKE_C_FLAGS} -Qunused-arguments'"
+        URL https://ftpmirror.gnu.org/nettle/nettle-3.10.2.tar.gz
+        URL_MD5 b28bcbf6f045ff007940a9401673600d
+        CONFIGURE_COMMAND ${WSL} ${CONFIGURE_COMMAND}
+        BUILD_COMMAND ${WSL} make -j4 libnettle.a
         INSTALL_COMMAND ""
         BUILD_IN_SOURCE 1
         BUILD_BYPRODUCTS <SOURCE_DIR>/libnettle.a
@@ -96,7 +101,7 @@ set(LIBARCHIVE_PATCH
 FetchContent_Declare(
         libarchive
         GIT_REPOSITORY https://github.com/libarchive/libarchive.git
-        GIT_TAG v3.8.2
+        GIT_TAG v3.8.4
         GIT_SHALLOW 1
         PATCH_COMMAND git apply --check -R ${LIBARCHIVE_PATCH} || git apply ${LIBARCHIVE_PATCH}
 )
@@ -134,7 +139,7 @@ unset(Rust_TOOLCHAIN CACHE)
 FetchContent_Declare(
         Corrosion
         GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-        GIT_TAG v0.5.2
+        GIT_TAG v0.6
         GIT_SHALLOW 1
 )
 
@@ -145,7 +150,7 @@ corrosion_import_crate(
         FEATURES $<IF:$<VERSION_GREATER_EQUAL:${ANDROID_NATIVE_API_LEVEL},26>,android-26,android>
         FLAGS $<$<NOT:$<CONFIG:Debug>>:-Z build-std -Z build-std-features=>
 )
-corrosion_add_target_rustflags(ehviewer_rust $<$<NOT:$<CONFIG:Debug>>:-Z unstable-options -C panic=immediate-abort>)
+corrosion_add_target_rustflags(ehviewer_rust $<$<NOT:$<CONFIG:Debug>>:-Z unstable-options -C panic=immediate-abort -Z location-detail=none -Z fmt-debug=none>)
 corrosion_link_libraries(ehviewer_rust android jnigraphics log webp webpdemux)
 
 # Build and link our app's native lib

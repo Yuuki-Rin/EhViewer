@@ -26,7 +26,7 @@ object GalleryListUrlParser {
     fun parse(urlStr: String) = Either.catch {
         val url = Url(urlStr)
         if (url.host != EhUrl.DOMAIN_E && url.host != EhUrl.DOMAIN_EX) {
-            return null
+            return@catch null
         }
         val segments = url.segments
         if (segments.isEmpty()) {
@@ -42,7 +42,6 @@ object GalleryListUrlParser {
                     mode = if (head == "uploader") ListUrlBuilder.MODE_UPLOADER else ListUrlBuilder.MODE_TAG
                     keyword = segments[1].decodeURLQueryComponent(plusIsSpace = true)
                 }
-
                 "toplist.php" -> {
                     val tl = url.parameters["tl"]
                     if (tl != null && tl in arrayOf("11", "12", "13", "15")) {
@@ -55,7 +54,6 @@ object GalleryListUrlParser {
                         null
                     }
                 }
-
                 else -> {
                     val category = EhUtils.getCategory(head)
                     if (category != EhUtils.UNKNOWN) {

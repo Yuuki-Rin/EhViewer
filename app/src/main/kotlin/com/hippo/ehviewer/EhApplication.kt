@@ -39,12 +39,12 @@ import coil3.request.crossfade
 import coil3.serviceLoaderEnabled
 import coil3.util.DebugLogger
 import com.ehviewer.core.database.SearchDatabase
+import com.ehviewer.core.database.roomDb
 import com.ehviewer.core.files.deleteContent
 import com.ehviewer.core.ui.util.initSETConnection
 import com.ehviewer.core.util.isAtLeastO
 import com.ehviewer.core.util.isAtLeastP
 import com.ehviewer.core.util.isAtLeastS
-import com.ehviewer.core.util.isAtLeastSExtension7
 import com.ehviewer.core.util.launchIO
 import com.ehviewer.core.util.logcat
 import com.ehviewer.core.util.withUIContext
@@ -65,8 +65,8 @@ import com.hippo.ehviewer.ktbuilder.imageLoader
 import com.hippo.ehviewer.ktor.Cronet
 import com.hippo.ehviewer.ktor.configureClient
 import com.hippo.ehviewer.ktor.configureCommon
+import com.hippo.ehviewer.ktor.isCronetAvailable
 import com.hippo.ehviewer.ui.keepNoMediaFileStatus
-import com.hippo.ehviewer.ui.lockObserver
 import com.hippo.ehviewer.ui.screen.detailCache
 import com.hippo.ehviewer.ui.tools.dataStateFlow
 import com.hippo.ehviewer.util.AppConfig
@@ -83,7 +83,6 @@ import logcat.LogPriority
 import logcat.LogcatLogger
 import logcat.asLog
 import okio.Path.Companion.toOkioPath
-import splitties.arch.room.roomDb
 import splitties.init.appCtx
 
 private val lifecycle = ProcessLifecycleOwner.get().lifecycle
@@ -109,7 +108,6 @@ class EhApplication : Application(), SingletonImageLoader.Factory {
                 }
             }
         }
-        lifecycle.addObserver(lockObserver)
         CrashHandler.install()
         super.onCreate()
         System.loadLibrary("ehviewer")
@@ -146,6 +144,8 @@ class EhApplication : Application(), SingletonImageLoader.Factory {
         if (BuildConfig.DEBUG) {
             StrictMode.enableDefaults()
             Composer.setDiagnosticStackTraceMode(ComposeStackTraceMode.SourceInformation)
+        } else {
+            Composer.setDiagnosticStackTraceMode(ComposeStackTraceMode.Auto)
         }
     }
 
@@ -218,7 +218,7 @@ class EhApplication : Application(), SingletonImageLoader.Factory {
             private set
 
         val ktorClient by lazy {
-            if (isAtLeastSExtension7 && Settings.enableCronet.value) {
+            if (isCronetAvailable && Settings.enableCronet.value) {
                 HttpClient(Cronet) {
                     engine { configureClient(Settings.enableQuic.value) }
                     configureCommon()

@@ -52,18 +52,21 @@ android {
     }.standardOutput.asText.get().trim().removePrefix("https://github.com/").removePrefix("git@github.com:")
         .removeSuffix(".git")
 
-    val chromeVersion = rootProject.layout.projectDirectory.file("chrome.version").asFile.readText().trim()
+    val snapshot = !hasProperty("release")
 
     defaultConfig {
         applicationId = "moe.tarsin.ehviewer"
         versionCode = 180063
-        versionName = "1.15.0"
-        versionNameSuffix = "-SNAPSHOT"
-        buildConfigField("String", "RAW_VERSION_NAME", "\"$versionName${versionNameSuffix.orEmpty()}\"")
+        versionName = if (snapshot) {
+            "1.15.0-SNAPSHOT"
+        } else {
+            "1.14.6"
+        }
+        buildConfigField("boolean", "SNAPSHOT", "$snapshot")
+        buildConfigField("String", "RAW_VERSION_NAME", "\"$versionName\"")
         buildConfigField("String", "COMMIT_SHA", "\"$commitSha\"")
         buildConfigField("long", "COMMIT_TIME", commitTime)
         buildConfigField("String", "REPO_NAME", "\"$repoName\"")
-        buildConfigField("String", "CHROME_VERSION", "\"$chromeVersion\"")
         ndk {
             if (isRelease) {
                 abiFilters.addAll(supportedAbis)
@@ -179,6 +182,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.browser)
+    implementation(libs.androidx.webkit)
 
     implementation(libs.compose.destinations.core)
     ksp(libs.compose.destinations.compiler)

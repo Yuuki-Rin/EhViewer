@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -123,7 +124,6 @@ import com.hippo.ehviewer.ui.Screen
 import com.hippo.ehviewer.ui.confirmRemoveDownloadRange
 import com.hippo.ehviewer.ui.main.DownloadCard
 import com.hippo.ehviewer.ui.main.GalleryInfoGridItem
-import com.hippo.ehviewer.ui.main.plus
 import com.hippo.ehviewer.ui.navToReader
 import com.hippo.ehviewer.ui.showMoveDownloadLabelList
 import com.hippo.ehviewer.ui.tools.DialogState
@@ -147,6 +147,7 @@ fun AnimatedVisibilityScope.DownloadsScreen(navigator: DestinationsNavigator) = 
     var gridView by Settings.gridView.asMutableState()
     var sortMode by Settings.downloadSortMode.asMutableState()
     val filterMode by Settings.downloadFilterMode.collectAsState { DownloadsFilterMode.from(it) }
+    val showProgress by Settings.showReadingProgress.collectAsState()
     var filterState by rememberSerializable { mutableStateOf(DownloadsFilterState(filterMode, Settings.recentDownloadLabel.value)) }
     var invalidateKey by rememberSaveable { mutableStateOf(false) }
     var isLoading by rememberSaveable { mutableStateOf(true) }
@@ -596,6 +597,7 @@ fun AnimatedVisibilityScope.DownloadsScreen(navigator: DestinationsNavigator) = 
                             info = info,
                             modifier = Modifier.thenIf(animateItems) { animateItem() },
                             showLanguage = false,
+                            showProgress = showProgress,
                         )
                     }
                 }
@@ -635,6 +637,7 @@ fun AnimatedVisibilityScope.DownloadsScreen(navigator: DestinationsNavigator) = 
                                 onStop = { launchIO { DownloadManager.stopDownload(info.gid) } },
                                 info = info,
                                 selectMode = selectMode,
+                                showProgress = showProgress,
                                 modifier = Modifier.height(height),
                                 interactionSource = interactionSource,
                             )

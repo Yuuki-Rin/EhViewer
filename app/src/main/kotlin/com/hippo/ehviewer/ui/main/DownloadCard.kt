@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
@@ -26,6 +27,7 @@ import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,7 +46,7 @@ import com.ehviewer.core.ui.component.CrystalCard
 import com.ehviewer.core.ui.component.GalleryListCardRating
 import com.ehviewer.core.ui.util.TransitionsVisibilityScope
 import com.ehviewer.core.ui.util.listThumbGenerator
-import com.hippo.ehviewer.Settings
+import com.hippo.ehviewer.EhDB
 import com.hippo.ehviewer.client.EhUtils
 import com.hippo.ehviewer.download.DownloadManager
 import com.hippo.ehviewer.util.FileUtils
@@ -60,6 +61,7 @@ fun DownloadCard(
     onStop: () -> Unit,
     info: DownloadInfo,
     selectMode: Boolean,
+    showProgress: Boolean,
     modifier: Modifier = Modifier,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) = CrystalCard(modifier = modifier, onClick = onClick, onLongClick = onLongClick, interactionSource = interactionSource) {
@@ -99,7 +101,14 @@ fun DownloadCard(
                     DownloadInfo.STATE_NONE -> stringResource(R.string.download_state_none)
                     DownloadInfo.STATE_WAIT -> stringResource(R.string.download_state_wait)
                     DownloadInfo.STATE_FAILED -> if (info.legacy <= 0) stateFailed else stateFailed2
-                    DownloadInfo.STATE_FINISH -> stringResource(R.string.download_state_finish)
+                    DownloadInfo.STATE_FINISH -> {
+                        if (showProgress) {
+                            val readProgress by remember { EhDB.getReadProgressFlow(info.gid) }.collectAsState(0)
+                            if (readProgress > 0) "${readProgress + 1}/${info.pages}P" else "${info.pages}P"
+                        } else {
+                            "${info.pages}P"
+                        }
+                    }
                     else -> null // The item has been removed and this will be disposed soon
                 }
                 ProvideTextStyle(MaterialTheme.typography.labelLarge) {
@@ -149,24 +158,24 @@ fun DownloadCard(
                     Text(
                         text = categoryText,
                         modifier = Modifier.clip(ShapeDefaults.Small).background(categoryColor).padding(vertical = 2.dp, horizontal = 8.dp),
-                        color = if (Settings.harmonizeCategoryColor.value) Color.Unspecified else EhUtils.categoryTextColor,
+                        color = EhUtils.getCategoryTextColor(categoryColor),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 val running = downloadState == DownloadInfo.STATE_WAIT || downloadState == DownloadInfo.STATE_DOWNLOAD
-                val icon = remember {
-                    movableContentOf<Boolean> {
-                        Icon(imageVector = if (it) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null)
-                    }
+                val icon = when (downloadState) {
+                    DownloadInfo.STATE_WAIT, DownloadInfo.STATE_DOWNLOAD -> Icons.Default.Pause
+                    DownloadInfo.STATE_FINISH -> Icons.Default.DownloadDone
+                    else -> Icons.Default.PlayArrow
                 }
                 if (selectMode) {
                     Box(modifier = Modifier.offset(4.dp).minimumInteractiveComponentSize()) {
-                        icon(running)
+                        Icon(imageVector = icon, contentDescription = null)
                     }
                 } else {
                     IconButton(onClick = if (running) onStop else onStart, shapes = IconButtonDefaults.shapes(), modifier = Modifier.offset(4.dp)) {
-                        icon(running)
+                        Icon(imageVector = icon, contentDescription = null)
                     }
                 }
             }

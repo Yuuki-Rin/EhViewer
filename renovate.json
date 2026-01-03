@@ -15,19 +15,18 @@
       "matchStrings": [
         "(?<depName>\\S*)\\s*GIT_REPOSITORY https://(?<datasource>.*?)\\.com/(?<packageName>.*?)\\.git\\s*GIT_TAG (?<currentValue>\\S*)"
       ],
-      "datasourceTemplate": "{{{datasource}}}-tags"
+      "datasourceTemplate": "{{datasource}}-tags"
     },
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "chrome.version"
+        "/(^|/)CMakeLists\\.txt$/"
       ],
       "matchStrings": [
-        "(?<currentValue>\\S+)"
+        "(/(?<depName>[^/]+)){2}-(?<currentValue>.+)\\.tar\\.gz"
       ],
-      "depNameTemplate": "chrome",
-      "datasourceTemplate": "custom.chrome",
-      "extractVersionTemplate": "^(?<version>\\d+)"
+      "datasourceTemplate": "custom.gnu",
+      "extractVersionTemplate": "{{depName}}-(?<version>.+)\\.tar\\.gz$"
     },
     {
       "customType": "regex",
@@ -54,10 +53,6 @@
     }
   ],
   "customDatasources": {
-    "chrome": {
-      "defaultRegistryUrlTemplate": "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE",
-      "format": "plain"
-    },
     "rust-nightly": {
       "defaultRegistryUrlTemplate": "https://rust-lang.github.io/rustup-components-history/aarch64-linux-android/rust-std",
       "format": "plain"
@@ -67,6 +62,10 @@
       "transformTemplates": [
         "{\"releases\":[{\"version\":$match(body,/ndkVersion \"([^\"]+)\"/).groups[0]}],\"changelogUrl\":html_url}"
       ]
+    },
+    "gnu": {
+      "defaultRegistryUrlTemplate": "https://ftpmirror.gnu.org/{{packageName}}/",
+      "format": "html"
     }
   },
   "packageRules": [
@@ -91,12 +90,6 @@
         "org.jetbrains.kotlinx:kotlinx-datetime"
       ],
       "allowedVersions": "!/compat$/"
-    },
-    {
-      "matchDepNames": [
-        "nettle"
-      ],
-      "versioning": "regex:^nettle_(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?(?<prerelease>rc\\d+)?"
     },
     {
       "matchDepNames": [

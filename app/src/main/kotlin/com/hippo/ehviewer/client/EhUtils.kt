@@ -20,15 +20,19 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Environment
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.net.toUri
 import arrow.core.memoize
 import com.ehviewer.core.model.GalleryDetail
 import com.ehviewer.core.model.GalleryInfo
+import com.ehviewer.core.network.EhCookieStore
 import com.ehviewer.core.util.withUIContext
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.client.parser.Archive
@@ -39,6 +43,7 @@ import com.hippo.ehviewer.util.addTextToClipboard
 import com.materialkolor.hct.Hct
 import com.materialkolor.ktx.from
 import com.materialkolor.ktx.toColor
+import com.materialkolor.utils.ColorUtils.lstarFromArgb
 import splitties.systemservices.downloadManager
 
 object EhUtils {
@@ -151,7 +156,13 @@ object EhUtils {
         }
     }
 
-    val categoryTextColor = Color(0xffe6e0e9)
+    @ReadOnlyComposable
+    @Composable
+    fun getCategoryTextColor(color: Color) = if (isSystemInDarkTheme() == lstarFromArgb(color.toArgb()) > 70) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        LocalContentColor.current
+    }
 
     val favoriteIconColor = Color(0xffff3040)
 

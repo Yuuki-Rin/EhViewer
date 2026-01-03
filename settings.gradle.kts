@@ -24,13 +24,11 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
-        // https://issuetracker.google.com/454527215
-        maven("https://androidx.dev/snapshots/builds/14386304/artifacts/repository")
     }
 }
 
 plugins {
-    id("com.android.settings") version "8.13.1"
+    id("com.android.settings") version "8.13.2"
 }
 
 android {

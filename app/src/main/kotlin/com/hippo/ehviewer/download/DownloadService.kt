@@ -52,8 +52,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
 class DownloadService :
@@ -113,14 +111,12 @@ class DownloadService :
                 val label = intent.getStringExtra(KEY_LABEL)
                 deferredMgr.await().startDownload(decodeFromSavedState(gi), label)
             }
-
             ACTION_START_RANGE -> {
                 val gidList = intent.getLongArrayExtra(KEY_GID_LIST)
                 if (gidList != null) {
                     deferredMgr.await().startRangeDownload(gidList)
                 }
             }
-
             ACTION_START_ALL -> deferredMgr.await().startAllDownload()
             ACTION_STOP_ALL -> deferredMgr.await().stopAllDownload()
             ACTION_CLEAR -> clear()
@@ -377,8 +373,8 @@ class DownloadService :
         }
 
         suspend fun run() {
-            channel.receiveAsFlow().sample(DELAY).collect {
-                when (it) {
+            while (true) {
+                when (channel.receive()) {
                     Ops.Notify -> {
                         if (ActivityCompat.checkSelfPermission(
                                 service,
@@ -388,10 +384,10 @@ class DownloadService :
                             notifyManager.notify(id, builder.build())
                         }
                     }
-
                     Ops.Cancel -> notifyManager.cancel(id)
                     Ops.StartForeground -> service.startForeground(id, builder.build())
                 }
+                delay(DELAY)
             }
         }
 

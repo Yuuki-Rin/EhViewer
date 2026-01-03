@@ -29,11 +29,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.fromHtml
 import com.ehviewer.core.i18n.R
+import com.ehviewer.core.network.EhCookieStore
 import com.ehviewer.core.util.isAtLeastT
 import com.ehviewer.core.util.launch
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.asMutableState
-import com.hippo.ehviewer.client.EhCookieStore
 import com.hippo.ehviewer.client.EhTagDatabase
 import com.hippo.ehviewer.client.EhUtils
 import com.hippo.ehviewer.collectAsState
@@ -213,6 +213,11 @@ fun AnimatedVisibilityScope.EhScreen(navigator: DestinationsNavigator) = Screen(
                 title = stringResource(id = R.string.settings_eh_show_gallery_pages),
                 summary = stringResource(id = R.string.settings_eh_show_gallery_pages_summary),
                 state = Settings.showGalleryPages.asMutableState(),
+            )
+            SwitchPreference(
+                title = stringResource(id = R.string.settings_eh_show_reading_progress),
+                summary = stringResource(id = R.string.settings_eh_show_reading_progress_summary),
+                state = Settings.showReadingProgress.asMutableState(),
             )
             SwitchPreference(
                 title = stringResource(id = R.string.settings_eh_show_vote_status),

@@ -19,7 +19,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -36,7 +36,7 @@ jobs:
           workspaces: "./app/src/main/rust"
 
       - name: CMake Cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: app/.cxx
           key: cmake-
@@ -50,15 +50,18 @@ jobs:
       - name: Generate Baseline Profile
         run: ./gradlew generateBaselineProfile
           -Pandroid.testoptions.manageddevices.emulator.gpu="swiftshader_indirect"
+          -Prelease
 
       # https://github.com/mikepenz/AboutLibraries/issues/1225
       - name: Generate aboutlibraries.json
         run: ./gradlew
           :app:prepareLibraryDefinitionsDefaultRelease --rerun
           :app:prepareLibraryDefinitionsMarshmallowRelease --rerun
+          -Prelease
 
       - name: Build
         run: ./gradlew assembleRelease
+          -Prelease
 
       - name: Rename Apks
         run: |

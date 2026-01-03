@@ -25,7 +25,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -42,7 +42,7 @@ jobs:
           workspaces: "./app/src/main/rust"
 
       - name: CMake Cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: app/.cxx
           key: cmake-
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: reports
           path: benchmark/build/reports
